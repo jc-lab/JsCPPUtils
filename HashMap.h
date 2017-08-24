@@ -40,9 +40,9 @@ namespace JsCPPUtils
 	 * _conf_limitnumofbuckets			최대 버킷 수
 	 */
 	template<typename TKEY, typename TVALUE>
-		class basic_HashMap : private Lockable
+		class HashMap : private Lockable
 		{
-		private:
+		public:
 			typedef uint32_t blockindex_t;
 			struct _tag_block;
 			typedef struct _tag_block
@@ -109,18 +109,18 @@ namespace JsCPPUtils
 			{
 			}
 			*/
-			
+			//explicit
 		public:
-			explicit basic_HashMap(int _initial_numofbuckets, int _initial_numofblocks, int _conf_incblocksize, float _conf_incbucketsthresholdratio, float _conf_incbucketfactor, int _conf_limitnumofbuckets)
-				: m_poly(0x741B8CD7),
-				m_buckets(NULL),
-				m_blocks(NULL),
-				m_freed(false),
-				m_lastfoundfreeblockidx(0),
-				m_conf_incblocksize(_conf_incblocksize),
-				m_conf_incbucketsthresholdratio(_conf_incbucketsthresholdratio),
-				m_conf_incbucketfactor(_conf_incbucketfactor),
-				m_conf_limitnumofbuckets(_conf_limitnumofbuckets)
+			basic_HashMap(int _initial_numofbuckets = 127, int _initial_numofblocks = 256, int _conf_incblocksize = 16, float _conf_incbucketsthresholdratio = 0.8, float _conf_incbucketfactor = 2.0, int _conf_limitnumofbuckets = 4194304)
+				: m_poly(0x741B8CD7)
+				, m_buckets(NULL)
+				, m_blocks(NULL)
+				, m_freed(false)
+				, m_lastfoundfreeblockidx(0)
+				, m_conf_incblocksize(_conf_incblocksize)
+				, m_conf_incbucketsthresholdratio(_conf_incbucketsthresholdratio)
+				, m_conf_incbucketfactor(_conf_incbucketfactor)
+				, m_conf_limitnumofbuckets(_conf_limitnumofbuckets)
 			{
 				blockindex_t bi;
 				
@@ -286,7 +286,8 @@ namespace JsCPPUtils
 								if (*pbucket == 0)
 								{
 									*pbucket = i + 1;
-								}else{
+								}
+								else {
 									blockindex_t tmpblockidx = *pbucket;
 									block_t *tmppblock = NULL;
 									while (tmpblockidx)
@@ -310,7 +311,8 @@ namespace JsCPPUtils
 					if (nresult != 1)
 					{
 						//printf("inc bucket failed\n");
-					}else{
+					}
+					else {
 						return true;
 					}
 				}
@@ -348,7 +350,8 @@ namespace JsCPPUtils
 					if (*pbucket == 0)
 					{
 						*pbucket = blockindex;
-					}else{
+					}
+					else {
 						blockindex_t tmpblockidx = *pbucket;
 						while (tmpblockidx)
 						{
@@ -416,9 +419,11 @@ namespace JsCPPUtils
 						m_lastfoundfreeblockidx = m_blockcount + 1 + i;
 					
 					return &new_blocks[m_blockcount];
-				}else if (m_blockcount > m_blocksize){
+				}
+				else if (m_blockcount > m_blocksize) {
 					throw std::exception();
-				}else{
+				}
+				else {
 					blockindex_t bi;
 					block_t *pblock = NULL;
 					block_t *tmppblock;
@@ -448,7 +453,8 @@ namespace JsCPPUtils
 								pblock = tmppblock;
 								memset(pblock, 0, sizeof(block_t));
 								*pblockindex = bi;
-							}else{
+							}
+							else {
 								m_freecache[cacheidx++] = bi;
 							}
 						}
@@ -465,7 +471,8 @@ namespace JsCPPUtils
 									pblock = tmppblock;
 									memset(pblock, 0, sizeof(block_t));
 									*pblockindex = bi;
-								}else{
+								}
+								else {
 									m_freecache[cacheidx++] = bi;
 								}
 							}
@@ -478,14 +485,6 @@ namespace JsCPPUtils
 					throw std::exception();
 				}
 			}
-		};
-	
-	template<typename TKEY, typename TVALUE>
-		class HashMap : public basic_HashMap<TKEY, TVALUE>
-		{
-		public:
-			HashMap() : basic_HashMap<TKEY, TVALUE, 127, 256, 16, 0.8, 2.0, 4194304>
-			{}
 		};
 }
 
