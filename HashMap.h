@@ -42,7 +42,7 @@ namespace JsCPPUtils
 	template<typename TKEY, typename TVALUE>
 		class HashMap : private Lockable
 		{
-		public:
+		private:
 			typedef uint32_t blockindex_t;
 			struct _tag_block;
 			typedef struct _tag_block
@@ -109,9 +109,8 @@ namespace JsCPPUtils
 			{
 			}
 			*/
-			//explicit
 		public:
-			basic_HashMap(int _initial_numofbuckets = 127, int _initial_numofblocks = 256, int _conf_incblocksize = 16, float _conf_incbucketsthresholdratio = 0.8, float _conf_incbucketfactor = 2.0, int _conf_limitnumofbuckets = 4194304)
+			explicit HashMap(int _initial_numofbuckets = 127, int _initial_numofblocks = 256, int _conf_incblocksize = 16, float _conf_incbucketsthresholdratio = 0.8, float _conf_incbucketfactor = 2.0, int _conf_limitnumofbuckets = 4194304)
 				: m_poly(0x741B8CD7)
 				, m_buckets(NULL)
 				, m_blocks(NULL)
@@ -150,7 +149,7 @@ namespace JsCPPUtils
 					m_lastfoundfreeblockidx = bi + 1;
 			}
 			
-			~basic_HashMap()
+			~HashMap()
 			{
 				m_freed = true;
 				//m_blocksize = 0;
