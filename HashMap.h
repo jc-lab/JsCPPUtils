@@ -43,6 +43,33 @@ namespace JsCPPUtils
 		class HashMap : private Lockable
 		{
 		private:
+			template<typename T>
+				struct Check_If_T_Is_Class_Type
+				{
+					template<typename C> static char func(char C::*p);
+					template<typename C> static int func(...);
+					enum{val = sizeof(Check_If_T_Is_Class_Type<T>::template func<T>(0)) == 1};
+				};
+			
+			template<typename T, bool bIsClass = Check_If_T_Is_Class_Type<T>::val>
+				class WrappedClass
+				{
+				public:
+					void callconstructor(T *ptr)
+					{
+					}
+				};
+			
+			template<typename T>
+				class WrappedClass<T, true>
+				{
+				public:
+					void callconstructor(T *ptr)
+					{
+						T *p = new(ptr) T();
+					}
+				};
+			
 			typedef uint32_t blockindex_t;
 			struct _tag_block;
 			typedef struct _tag_block
@@ -71,30 +98,32 @@ namespace JsCPPUtils
 			
 			bool m_freed;
 		
-			int _hash(uint64_t key)
+			int _hash(const TKEY &key)
 			{
-				uint64_t poly = m_poly;
-				key *= poly;
-				key += ~(key << 15);
-				key ^=  (key >> 10);
-				key +=  (key << 3);
-				key ^=  (key >> 6);
-				key += ~(key << 11);
-				key ^=  (key >> 16);
-				return key % m_numofbuckets;
+				int i;
+				uint32_t poly = m_poly;
+				uint32_t hash = 0;
+				unsigned char *pkey = (unsigned char*)&key;
+				for (i = 0; i < sizeof(key); i++)
+				{
+					poly = (poly << 1) | (poly >> (32 - 1)); // 1bit Left Shift
+					hash = (uint32_t)(poly * hash + pkey[i]);
+				}
+				return hash % m_numofbuckets;
 			}
 		
-			int _hash2(uint64_t key, uint32_t numofbuckets)
+			int _hash2(const TKEY &key, uint32_t numofbuckets)
 			{
-				uint64_t poly = m_poly;
-				key *= poly;
-				key += ~(key << 15);
-				key ^=  (key >> 10);
-				key +=  (key << 3);
-				key ^=  (key >> 6);
-				key += ~(key << 11);
-				key ^=  (key >> 16);
-				return key % numofbuckets;
+				int i;
+				uint32_t poly = m_poly;
+				uint32_t hash = 0;
+				unsigned char *pkey = (unsigned char*)&key;
+				for (i = 0; i < sizeof(key); i++)
+				{
+					poly = (poly << 1) | (poly >> (32 - 1)); // 1bit Left Shift
+					hash = (uint32_t)(poly * hash + pkey[i]);
+				}
+				return hash % numofbuckets;
 			}
 
 			/*
@@ -179,7 +208,7 @@ namespace JsCPPUtils
 			*/
 		
 			// std::bad_alloc
-			const TVALUE& operator[](const TKEY key) const
+			const TVALUE& operator[](const TKEY &key) const
 			{
 				block_t *pblock;
 				
@@ -193,7 +222,7 @@ namespace JsCPPUtils
 				return ref_value;
 			}
 		
-			TVALUE& operator[](const TKEY key)
+			TVALUE& operator[](const TKEY &key)
 			{
 				block_t *pblock;
 				
@@ -207,7 +236,7 @@ namespace JsCPPUtils
 				return ref_value;
 			}
 			
-			void erase(const TKEY key)
+			void erase(const TKEY &key)
 			{
 				int i;
 				int hash = _hash(key);
@@ -235,6 +264,9 @@ namespace JsCPPUtils
 							break;
 						}
 					}
+					
+					if (Check_If_T_Is_Class_Type<TVALUE>::val)
+						pblock->value.~TVALUE();
 					
 					//blockindex
 					
@@ -318,7 +350,7 @@ namespace JsCPPUtils
 				return false;
 			}
 			
-			block_t *_getblock(const TKEY key)
+			block_t *_getblock(const TKEY &key)
 			{
 				int hash = _hash(key);
 				
@@ -339,12 +371,17 @@ namespace JsCPPUtils
 					
 					pblock = _getunusedblock(&blockindex); // An exception may occur / std::bad_alloc
 					
+					{
+						WrappedClass<TVALUE> wrappedCls;
+						wrappedCls.callconstructor(&pblock->value);
+					}
+					
 					m_blockcount++;
 					
 					pblock->used = 1;
-					pblock->key = key;
+					memcpy(&pblock->key, &key, sizeof(TKEY));
 					pblock->next = 0;
-					pblock->value = 0;
+					memset(&pblock->value, 0, sizeof(TVALUE));
 					
 					if (*pbucket == 0)
 					{
@@ -368,7 +405,7 @@ namespace JsCPPUtils
 				return pblock;
 			}
 			
-			block_t *_findblock(blockindex_t bucket, const TKEY key, block_t **pprevblock = NULL, blockindex_t *pretblockindex = NULL)
+			block_t *_findblock(blockindex_t bucket, const TKEY &key, block_t **pprevblock = NULL, blockindex_t *pretblockindex = NULL)
 			{
 				if (bucket != 0)
 				{
