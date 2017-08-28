@@ -70,7 +70,7 @@ namespace JsCPPUtils
 					}
 				};
 			
-			typedef uint32_t blockindex_t;
+			typedef int32_t blockindex_t;
 			struct _tag_block;
 			typedef struct _tag_block
 			{
@@ -371,17 +371,17 @@ namespace JsCPPUtils
 					
 					pblock = _getunusedblock(&blockindex); // An exception may occur / std::bad_alloc
 					
+					pblock->used = 1;
+					memcpy(&pblock->key, &key, sizeof(TKEY));
+					pblock->next = 0;
+					memset(&pblock->value, 0, sizeof(TVALUE));
+					m_blockcount++;
+					
 					{
 						WrappedClass<TVALUE> wrappedCls;
 						wrappedCls.callconstructor(&pblock->value);
 					}
 					
-					m_blockcount++;
-					
-					pblock->used = 1;
-					memcpy(&pblock->key, &key, sizeof(TKEY));
-					pblock->next = 0;
-					memset(&pblock->value, 0, sizeof(TVALUE));
 					
 					if (*pbucket == 0)
 					{
@@ -414,7 +414,7 @@ namespace JsCPPUtils
 					while (tmpblockidx)
 					{
 						block_t *ptmpblock = &m_blocks[tmpblockidx - 1];
-						if (ptmpblock->key == key)
+						if (memcmp(&ptmpblock->key, &key, sizeof(TKEY)) == 0)
 						{
 							if (pprevblock)
 								*pprevblock = ptmpprevblock;
@@ -489,8 +489,7 @@ namespace JsCPPUtils
 								pblock = tmppblock;
 								memset(pblock, 0, sizeof(block_t));
 								*pblockindex = bi;
-							}
-							else {
+							}else{
 								m_freecache[cacheidx++] = bi;
 							}
 						}
@@ -507,8 +506,7 @@ namespace JsCPPUtils
 									pblock = tmppblock;
 									memset(pblock, 0, sizeof(block_t));
 									*pblockindex = bi;
-								}
-								else {
+								}else{
 									m_freecache[cacheidx++] = bi;
 								}
 							}
@@ -521,7 +519,97 @@ namespace JsCPPUtils
 					throw std::exception();
 				}
 			}
-		};
+			
+		public:
+			class Iterator
+			{
+			private:
+				friend class HashMap<TKEY, TVALUE>;
+				
+				HashMap<TKEY, TVALUE> *m_pmap;
+				blockindex_t m_nextidx;
+				blockindex_t m_curidx;
+				
+			private:
+				void _findnext()
+				{
+					blockindex_t bi;
+					blockindex_t nextbi = 0;
+					
+					for (bi = m_nextidx; bi < m_pmap->m_blocksize; bi++)
+					{
+						block_t *pblock = &m_pmap->m_blocks[bi];
+						if (pblock->used == 1)
+						{
+							nextbi = bi + 1;
+							break;
+						}
+					}
+					
+					if (nextbi == 0)
+						m_nextidx = m_pmap->m_blocksize + 1;
+					else
+						m_nextidx = nextbi;
+				}
+				
+			public:
+				Iterator()
+				{
+					m_pmap = NULL;
+					m_nextidx = 0;
+					m_curidx = 0;
+				}
+				
+				Iterator(const Iterator& _ref)
+				{
+					m_pmap = _ref.m_pmap;
+					m_nextidx = _ref.m_nextidx;
+					m_curidx = _ref.m_curidx;
+				}
+				
+				bool hasNext()
+				{
+					return ((m_nextidx > 0) && (m_nextidx < (m_pmap->m_blocksize + 1))) ;
+				}
+				
+				TVALUE &next()
+				{
+					m_curidx = m_nextidx;
+					_findnext();
+					return m_pmap->m_blocks[m_curidx - 1].value;
+				}
+				
+				TKEY getKey()
+				{
+					return m_pmap->m_blocks[m_curidx - 1].key;
+				}
+			};
+			
+			Iterator iterator()
+			{
+				Iterator iter;
+				iter.m_pmap = this;
+				iter.m_nextidx = 0;
+				iter._findnext();
+				return iter;
+			}
+			
+			Iterator find(const TKEY &key)
+			{
+				Iterator iter;
+				blockindex_t nextbi = 0;
+				
+				int hash = _hash(key);
+				blockindex_t bucket = m_buckets[hash];
+				block_t *pblock = _findblock(bucket, key, NULL, &nextbi);
+				
+				iter.m_pmap = this;
+				iter.m_nextidx = nextbi;
+				
+				return iter;
+			}
+			
+	};
 }
 
 #endif /* __JSCPPUTILS_HASHMAP_H__ */
