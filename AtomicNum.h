@@ -22,6 +22,10 @@
 #include <windows.h>
 #include <intrin.h>
 #include <typeinfo>
+#elif defined(JSCUTILS_OS_LINUX)
+#include <pthread.h>
+#include <unistd.h>
+#include <errno.h>
 #endif
 
 namespace JsCPPUtils
@@ -263,7 +267,6 @@ namespace JsCPPUtils
 				return (tval <= y);
 			}
 		};
-#endif
 	
 	template <typename T>
 		class basic_AtomicNumMutex : public basic_AtomicNumAbstract<T>, private JsCPPUtils::Lockable
@@ -421,7 +424,209 @@ namespace JsCPPUtils
 				return r;
 			}
 		};
+	
+#elif defined(JSCUTILS_OS_LINUX)
 
+	template <typename T>
+		class basic_AtomicNumMutex : public basic_AtomicNumAbstract<T>
+		{
+		private:
+			T m_value;
+			pthread_rwlock_t m_syslock;
+
+			void _init()
+			{
+				pthread_rwlock_init(&m_syslock, NULL);
+			}
+			
+		public:
+			basic_AtomicNumMutex()
+				: m_value(0)
+			{
+				_init();
+			}
+
+			basic_AtomicNumMutex(T initialvalue)
+				: m_value(initialvalue)
+			{
+				_init();
+			}
+	
+			~basic_AtomicNumMutex()
+			{
+				pthread_rwlock_destroy(&m_syslock);
+			}
+
+			void set(T value)
+			{
+				pthread_rwlock_wrlock(&m_syslock);
+				m_value = value;
+				pthread_rwlock_unlock(&m_syslock);
+			}
+		
+			void operator=(T value)
+			{
+				pthread_rwlock_wrlock(&m_syslock);
+				m_value = value;
+				pthread_rwlock_unlock(&m_syslock);
+			}
+
+			operator T() const
+			{
+				T value;
+				int rc;
+				while ((rc = pthread_rwlock_rdlock((pthread_rwlock_t*)&m_syslock)) == EAGAIN)
+				{
+					::usleep(1);
+				}
+				value = m_value;
+				pthread_rwlock_unlock((pthread_rwlock_t*)&m_syslock);
+				return value;
+			}
+
+			T get() const
+			{
+				T value;
+				int rc;
+				while ((rc = pthread_rwlock_rdlock((pthread_rwlock_t*)&m_syslock)) == EAGAIN)
+				{
+					::usleep(1);
+				}
+				value = m_value;
+				pthread_rwlock_unlock((pthread_rwlock_t*)&m_syslock);
+				return value;
+			}
+
+			T getset(T value)
+			{
+				T old;
+				pthread_rwlock_wrlock(&m_syslock);
+				old = m_value;
+				m_value = value;
+				pthread_rwlock_unlock(&m_syslock);
+				return old;
+			}
+
+			T getifset(T value, T ifvalue)
+			{
+				T old;
+				pthread_rwlock_wrlock(&m_syslock);
+				old = m_value;
+				if (old == ifvalue)
+					m_value = value;
+				pthread_rwlock_unlock(&m_syslock);
+				return old;
+			}
+
+			void operator+=(T y)
+			{
+				pthread_rwlock_wrlock(&m_syslock);
+				m_value += y;
+				pthread_rwlock_unlock(&m_syslock);
+			}
+
+			void operator-=(T y)
+			{
+				pthread_rwlock_wrlock(&m_syslock);
+				m_value -= y;
+				pthread_rwlock_unlock(&m_syslock);
+			}
+
+			void operator&=(T y)
+			{
+				pthread_rwlock_wrlock(&m_syslock);
+				m_value &= y;
+				pthread_rwlock_unlock(&m_syslock);
+			}
+
+			void operator|=(T y)
+			{
+				pthread_rwlock_wrlock(&m_syslock);
+				m_value |= y;
+				pthread_rwlock_unlock(&m_syslock);
+			}
+
+			bool operator==(T y) const
+			{
+				bool r;
+				int rc;
+				while ((rc = pthread_rwlock_rdlock((pthread_rwlock_t*)&m_syslock)) == EAGAIN)
+				{
+					::usleep(1);
+				}
+				r = m_value == y;
+				pthread_rwlock_unlock((pthread_rwlock_t*)&m_syslock);
+				return r;
+			}
+
+			bool operator!=(T y) const
+			{
+				bool r;
+				int rc;
+				while ((rc = pthread_rwlock_rdlock((pthread_rwlock_t*)&m_syslock)) == EAGAIN)
+				{
+					::usleep(1);
+				}
+				r = m_value != y;
+				pthread_rwlock_unlock((pthread_rwlock_t*)&m_syslock);
+				return r;
+			}
+
+			bool operator>(T y) const
+			{
+				bool r;
+				int rc;
+				while ((rc = pthread_rwlock_rdlock((pthread_rwlock_t*)&m_syslock)) == EAGAIN)
+				{
+					::usleep(1);
+				}
+				r = m_value > y;
+				pthread_rwlock_unlock((pthread_rwlock_t*)&m_syslock);
+				return r;
+			}
+
+			bool operator<(T y) const
+			{
+				bool r;
+				int rc;
+				while ((rc = pthread_rwlock_rdlock((pthread_rwlock_t*)&m_syslock)) == EAGAIN)
+				{
+					::usleep(1);
+				}
+				r = m_value < y;
+				pthread_rwlock_unlock((pthread_rwlock_t*)&m_syslock);
+				return r;
+			}
+
+			bool operator>=(T y) const
+			{
+				bool r;
+				int rc;
+				while ((rc = pthread_rwlock_rdlock((pthread_rwlock_t*)&m_syslock)) == EAGAIN)
+				{
+					::usleep(1);
+				}
+				r = m_value >= y;
+				pthread_rwlock_unlock((pthread_rwlock_t*)&m_syslock);
+				return r;
+			}
+
+			bool operator<=(T y) const
+			{
+				bool r;
+				int rc;
+				while ((rc = pthread_rwlock_rdlock((pthread_rwlock_t*)&m_syslock)) == EAGAIN)
+				{
+					::usleep(1);
+				}
+				r = m_value <= y;
+				pthread_rwlock_unlock((pthread_rwlock_t*)&m_syslock);
+				return r;
+			}
+		};
+
+#endif
+	
 	template <typename T>
 		class AtomicNum
 		{
@@ -435,14 +640,12 @@ namespace JsCPPUtils
 				if (sizeof(T) == 8)
 				{
 					m_pimpl = new basic_AtomicNumSYS64<T>(initialvalue);
-				}
-				else
+				}else
 #endif
-							if (sizeof(T) <= 4)
+				if (sizeof(T) <= 4)
 				{
 					m_pimpl = new basic_AtomicNumSYS32<T>(initialvalue);
-				}
-				else {
+				}else{
 					m_pimpl = new basic_AtomicNumMutex<T>(initialvalue);
 				}
 #else
