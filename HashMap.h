@@ -40,7 +40,7 @@ namespace JsCPPUtils
 	 * _conf_limitnumofbuckets			최대 버킷 수
 	 */
 	template<typename TKEY, typename TVALUE>
-		class HashMap : private Lockable
+		class basic_HashMapNTS
 		{
 		private:
 			template<typename T>
@@ -139,7 +139,83 @@ namespace JsCPPUtils
 			}
 			*/
 		public:
-			explicit HashMap(int _initial_numofbuckets = 127, int _initial_numofblocks = 256, int _conf_incblocksize = 16, float _conf_incbucketsthresholdratio = 0.8, float _conf_incbucketfactor = 2.0, int _conf_limitnumofbuckets = 4194304)
+			class Iterator
+			{
+			private:
+				friend class basic_HashMapNTS<TKEY, TVALUE>;
+				
+				int m_itertype; // 0 : all, 1 : special item
+				
+				basic_HashMapNTS<TKEY, TVALUE> *m_pmap;
+				blockindex_t m_nextidx;
+				blockindex_t m_curidx;
+				
+			private:
+				void _findnext()
+				{
+					if (m_itertype == 0)
+					{
+						blockindex_t bi;
+						blockindex_t nextbi = 0;
+					
+						for (bi = m_nextidx; bi < m_pmap->m_blocksize; bi++)
+						{
+							block_t *pblock = &m_pmap->m_blocks[bi];
+							if (pblock->used == 1)
+							{
+								nextbi = bi + 1;
+								break;
+							}
+						}
+					
+						if (nextbi == 0)
+							m_nextidx = m_pmap->m_blocksize + 1;
+						else
+							m_nextidx = nextbi;
+					}
+					else // if(m_itertype == 1)
+					{
+						m_nextidx = 0;
+					}
+				}
+				
+			public:
+				Iterator()
+				{
+					m_pmap = NULL;
+					m_nextidx = 0;
+					m_curidx = 0;
+					m_itertype = -1;
+				}
+				
+				Iterator(const Iterator& _ref)
+				{
+					m_pmap = _ref.m_pmap;
+					m_nextidx = _ref.m_nextidx;
+					m_curidx = _ref.m_curidx;
+					m_itertype = _ref.m_itertype;
+				}
+				
+				bool hasNext()
+				{
+					return ((m_nextidx > 0) && (m_nextidx < (m_pmap->m_blocksize + 1))) ;
+				}
+				
+				TVALUE &next()
+				{
+					m_curidx = m_nextidx;
+					_findnext();
+					return m_pmap->m_blocks[m_curidx - 1].value;
+				}
+				
+				TKEY getKey()
+				{
+					return m_pmap->m_blocks[m_curidx - 1].key;
+				}
+			};
+			
+		public:
+			explicit basic_HashMapNTS(int _initial_numofbuckets = 127, int _initial_numofblocks = 256, int _conf_incblocksize = 16, float _conf_incbucketsthresholdratio = 0.8, float _conf_incbucketfactor = 2.0, int _conf_limitnumofbuckets = 4194304)
 				: m_poly(0x741B8CD7)
 				, m_buckets(NULL)
 				, m_blocks(NULL)
@@ -178,7 +254,7 @@ namespace JsCPPUtils
 					m_lastfoundfreeblockidx = bi + 1;
 			}
 			
-			~HashMap()
+			~basic_HashMapNTS()
 			{
 				m_freed = true;
 				//m_blocksize = 0;
@@ -190,6 +266,19 @@ namespace JsCPPUtils
 				}
 				if (m_blocks != NULL)
 				{
+					if (Check_If_T_Is_Class_Type<TVALUE>::val)
+					{
+						blockindex_t bi;
+						for (bi = 0; bi < m_blocksize; bi++)
+						{
+							block_t *pblock = &m_blocks[bi];
+							if (pblock->used = 1)
+							{
+								pblock->value.~TVALUE();
+							}
+							pblock->used = 0;
+						}
+					}
 					free(m_blocks);
 					m_blocks = NULL;
 				}
@@ -206,77 +295,6 @@ namespace JsCPPUtils
 				m_poly = _ref.m_poly;
 			}
 			*/
-		
-			// std::bad_alloc
-			const TVALUE& operator[](const TKEY &key) const
-			{
-				block_t *pblock;
-				
-				lock();
-				
-				pblock = _getblock(key);
-				const TVALUE& ref_value = pblock->value;
-				
-				unlock();
-				
-				return ref_value;
-			}
-		
-			TVALUE& operator[](const TKEY &key)
-			{
-				block_t *pblock;
-				
-				lock();
-				
-				pblock = _getblock(key);
-				TVALUE& ref_value = pblock->value;
-				
-				unlock();
-				
-				return ref_value;
-			}
-			
-			void erase(const TKEY &key)
-			{
-				int i;
-				int hash = _hash(key);
-				blockindex_t *pbucket;
-				blockindex_t blockindex = 0;
-				block_t *pblock;
-				block_t *pprevblock = NULL;
-				
-				lock();
-				
-				pbucket = &m_buckets[hash];
-				pblock = _findblock(*pbucket, key, &pprevblock, &blockindex);
-				if (pblock != NULL)
-				{
-					if (pprevblock == NULL)
-						*pbucket = pblock->next;
-					else
-						pprevblock->next = pblock->next;
-					
-					for (i = 0; i < JsCPPUtils_HashMap_FREECACHESIZE; i++)
-					{
-						if (m_freecache[i] == 0)
-						{
-							m_freecache[i] = blockindex;
-							break;
-						}
-					}
-					
-					if (Check_If_T_Is_Class_Type<TVALUE>::val)
-						pblock->value.~TVALUE();
-					
-					//blockindex
-					
-					pblock->used = 0;
-					pblock->next = 0;
-					m_blockcount--;
-				}
-				
-				unlock();
-			}
 			
 		private:
 			bool _checkbucketstate()
@@ -350,12 +368,12 @@ namespace JsCPPUtils
 				return false;
 			}
 			
-			block_t *_getblock(const TKEY &key)
+			block_t *_getblock(const TKEY &key, blockindex_t *pretblockindex = NULL)
 			{
 				int hash = _hash(key);
 				
 				blockindex_t *pbucket = &m_buckets[hash];
-				block_t *pblock = _findblock(*pbucket, key);
+				block_t *pblock = _findblock(*pbucket, key, NULL, pretblockindex);
 				
 				// new block
 				if (pblock == NULL)
@@ -366,7 +384,6 @@ namespace JsCPPUtils
 					{
 						hash = _hash(key);
 						pbucket = &m_buckets[hash];
-						pblock = _findblock(*pbucket, key);
 					}
 					
 					pblock = _getunusedblock(&blockindex); // An exception may occur / std::bad_alloc
@@ -377,6 +394,9 @@ namespace JsCPPUtils
 					memset(&pblock->value, 0, sizeof(TVALUE));
 					m_blockcount++;
 					
+					if (pretblockindex)
+						*pretblockindex = blockindex;
+					
 					{
 						WrappedClass<TVALUE> wrappedCls;
 						wrappedCls.callconstructor(&pblock->value);
@@ -386,8 +406,7 @@ namespace JsCPPUtils
 					if (*pbucket == 0)
 					{
 						*pbucket = blockindex;
-					}
-					else {
+					}else{
 						blockindex_t tmpblockidx = *pbucket;
 						while (tmpblockidx)
 						{
@@ -521,73 +540,69 @@ namespace JsCPPUtils
 			}
 			
 		public:
-			class Iterator
+		
+			const TVALUE& operator[](const TKEY &key) const
 			{
-			private:
-				friend class HashMap<TKEY, TVALUE>;
+				const block_t *pblock;
 				
-				HashMap<TKEY, TVALUE> *m_pmap;
-				blockindex_t m_nextidx;
-				blockindex_t m_curidx;
+				pblock = _getblock(key);
+				const TVALUE& ref_value = pblock->value;
 				
-			private:
-				void _findnext()
+				return ref_value;
+			}
+		
+			TVALUE& operator[](const TKEY &key)
+			{
+				block_t *pblock;
+				
+				pblock = _getblock(key);
+				TVALUE& ref_value = pblock->value;
+				
+				return ref_value;
+			}
+			
+			void erase(const TKEY &key)
+			{
+				int i;
+				int hash = _hash(key);
+				blockindex_t *pbucket;
+				blockindex_t blockindex = 0;
+				block_t *pblock;
+				block_t *pprevblock = NULL;
+				
+				pbucket = &m_buckets[hash];
+				pblock = _findblock(*pbucket, key, &pprevblock, &blockindex);
+				if (pblock != NULL)
 				{
-					blockindex_t bi;
-					blockindex_t nextbi = 0;
+					if (pprevblock == NULL)
+						*pbucket = pblock->next;
+					else
+						pprevblock->next = pblock->next;
 					
-					for (bi = m_nextidx; bi < m_pmap->m_blocksize; bi++)
+					for (i = 0; i < JsCPPUtils_HashMap_FREECACHESIZE; i++)
 					{
-						block_t *pblock = &m_pmap->m_blocks[bi];
-						if (pblock->used == 1)
+						if (m_freecache[i] == 0)
 						{
-							nextbi = bi + 1;
+							m_freecache[i] = blockindex;
 							break;
 						}
 					}
 					
-					if (nextbi == 0)
-						m_nextidx = m_pmap->m_blocksize + 1;
-					else
-						m_nextidx = nextbi;
+					if (Check_If_T_Is_Class_Type<TVALUE>::val)
+						pblock->value.~TVALUE();
+					
+					//blockindex
+					
+					pblock->used = 0;
+					pblock->next = 0;
+					m_blockcount--;
 				}
-				
-			public:
-				Iterator()
-				{
-					m_pmap = NULL;
-					m_nextidx = 0;
-					m_curidx = 0;
-				}
-				
-				Iterator(const Iterator& _ref)
-				{
-					m_pmap = _ref.m_pmap;
-					m_nextidx = _ref.m_nextidx;
-					m_curidx = _ref.m_curidx;
-				}
-				
-				bool hasNext()
-				{
-					return ((m_nextidx > 0) && (m_nextidx < (m_pmap->m_blocksize + 1))) ;
-				}
-				
-				TVALUE &next()
-				{
-					m_curidx = m_nextidx;
-					_findnext();
-					return m_pmap->m_blocks[m_curidx - 1].value;
-				}
-				
-				TKEY getKey()
-				{
-					return m_pmap->m_blocks[m_curidx - 1].key;
-				}
-			};
+			}
 			
 			Iterator iterator()
 			{
 				Iterator iter;
+				iter.m_itertype = 0;
 				iter.m_pmap = this;
 				iter.m_nextidx = 0;
 				iter._findnext();
@@ -603,13 +618,191 @@ namespace JsCPPUtils
 				blockindex_t bucket = m_buckets[hash];
 				block_t *pblock = _findblock(bucket, key, NULL, &nextbi);
 				
+				iter.m_itertype = 0;
 				iter.m_pmap = this;
 				iter.m_nextidx = nextbi;
 				
 				return iter;
 			}
 			
+			Iterator use(const TKEY &key)
+			{
+				Iterator iter;
+				block_t *pblock;
+				blockindex_t nextbi = 0;
+				
+				pblock = _getblock(key, &nextbi);
+				
+				iter.m_itertype = 1;
+				iter.m_pmap = this;
+				iter.m_nextidx = nextbi;
+				
+				return iter;
+			}
 	};
+	
+	
+	/**
+	 * TKEY						Key의 type
+	 * TVALUE					Value의 type
+	 * _initial_numofbuckets		Key에 대한 Bucket수
+	 * _initial_numofblocks		초기 블록 수 (데이터 수)
+	 * _incblocksize			지정한 블록 수 보다 데이터가 많아질 때 증가시길 블록 수
+	 * _conf_incbucketsthresholdratio	버킷을 증가할 데이터개수/현재버킷개수 비율의 한계점
+	 * _conf_incbucketfactor			버킷 증가 비율
+	 * _conf_limitnumofbuckets			최대 버킷 수
+	 */
+	template<typename TKEY, typename TVALUE>
+		class HashMap : public basic_HashMapNTS<TKEY, TVALUE>, private Lockable
+		{
+		public:
+			explicit HashMap(int _initial_numofbuckets = 127, int _initial_numofblocks = 256, int _conf_incblocksize = 16, float _conf_incbucketsthresholdratio = 0.8, float _conf_incbucketfactor = 2.0, int _conf_limitnumofbuckets = 4194304)
+				: basic_HashMapNTS<TKEY, TVALUE>(_initial_numofbuckets, _initial_numofblocks, _conf_incblocksize, _conf_incbucketsthresholdratio, _conf_incbucketfactor, _conf_limitnumofbuckets)
+			{
+			}
+			
+			~HashMap()
+			{
+			}
+			
+			/*
+			// Move constructor.  
+			basic_HashMap(const basic_HashMap<TKEY, TVALUE, _numofbuckets, _numofinitialblocks, _incblocksize>&& _ref)
+			{
+				m_blocks = _ref.m_blocks;
+				m_blocksize = _ref.m_blocksize;
+				m_blockcount = _ref.m_blockcount;
+				m_buckets = _ref.m_buckets;
+				m_poly = _ref.m_poly;
+			}
+			*/
+			
+			void iteratoring_lock()
+			{
+				lock();
+			}
+			
+			void iteratoring_unlock()
+			{
+				unlock();
+			}
+			
+			// std::bad_alloc
+			const TVALUE& operator[](const TKEY &key) const
+			{
+				lock();
+				
+				const TVALUE& ref_value = basic_HashMapNTS<TKEY, TVALUE>::operator[](key);
+				
+				unlock();
+				
+				return ref_value;
+			}
+		
+			TVALUE& operator[](const TKEY &key)
+			{
+				lock();
+				
+				TVALUE& ref_value = basic_HashMapNTS<TKEY, TVALUE>::operator[](key);
+				
+				unlock();
+				
+				return ref_value;
+			}
+			
+			void erase(const TKEY &key)
+			{
+				lock();
+				basic_HashMapNTS<TKEY, TVALUE>::erase(key);
+				unlock();
+			}
+		};
+	
+	/**
+	 * TKEY						Key의 type
+	 * TVALUE					Value의 type
+	 * _initial_numofbuckets		Key에 대한 Bucket수
+	 * _initial_numofblocks		초기 블록 수 (데이터 수)
+	 * _incblocksize			지정한 블록 수 보다 데이터가 많아질 때 증가시길 블록 수
+	 * _conf_incbucketsthresholdratio	버킷을 증가할 데이터개수/현재버킷개수 비율의 한계점
+	 * _conf_incbucketfactor			버킷 증가 비율
+	 * _conf_limitnumofbuckets			최대 버킷 수
+	 */
+	template<typename TKEY, typename TVALUE>
+		class HashMapRWLock : public basic_HashMapNTS<TKEY, TVALUE>, private LockableRW
+		{
+		public:
+			explicit HashMapRWLock(int _initial_numofbuckets = 127, int _initial_numofblocks = 256, int _conf_incblocksize = 16, float _conf_incbucketsthresholdratio = 0.8, float _conf_incbucketfactor = 2.0, int _conf_limitnumofbuckets = 4194304)
+				: basic_HashMapNTS<TKEY, TVALUE>(_initial_numofbuckets, _initial_numofblocks, _conf_incblocksize, _conf_incbucketsthresholdratio, _conf_incbucketfactor, _conf_limitnumofbuckets)
+			{
+			}
+			
+			~HashMapRWLock()
+			{
+			}
+			
+			/*
+			// Move constructor.  
+			basic_HashMap(const basic_HashMap<TKEY, TVALUE, _numofbuckets, _numofinitialblocks, _incblocksize>&& _ref)
+			{
+				m_blocks = _ref.m_blocks;
+				m_blocksize = _ref.m_blocksize;
+				m_blockcount = _ref.m_blockcount;
+				m_buckets = _ref.m_buckets;
+				m_poly = _ref.m_poly;
+			}
+			*/
+			
+			void iteratoring_readlock()
+			{
+				readlock();
+			}
+			
+			void iteratoring_readunlock()
+			{
+				readunlock();
+			}
+			
+			void iteratoring_writelock()
+			{
+				writelock();
+			}
+			
+			void iteratoring_writeunlock()
+			{
+				writeunlock();
+			}
+			
+			// std::bad_alloc
+			const TVALUE& operator[](const TKEY &key) const
+			{
+				writelock();
+				
+				const TVALUE& ref_value = basic_HashMapNTS<TKEY, TVALUE>::operator[](key);
+				
+				writeunlock();
+				
+				return ref_value;
+			}
+		
+			TVALUE& operator[](const TKEY &key)
+			{
+				writelock();
+				
+				TVALUE& ref_value = basic_HashMapNTS<TKEY, TVALUE>::operator[](key);
+				
+				writeunlock();
+				
+				return ref_value;
+			}
+			
+			void erase(const TKEY &key)
+			{
+				writelock();
+				basic_HashMapNTS<TKEY, TVALUE>::erase(key);
+				writeunlock();
+			}
+		};
 }
 
 #endif /* __JSCPPUTILS_HASHMAP_H__ */
