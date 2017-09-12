@@ -10,6 +10,10 @@
  */
 
 #include "Lockable.h"
+#if defined(JSCUTILS_OS_LINUX)
+#include <errno.h>
+#include <unistd.h>
+#endif
 
 namespace JsCPPUtils
 {
@@ -54,6 +58,58 @@ namespace JsCPPUtils
 		}
 		return 1;
 	}
+	
+	
+	LockableRW::LockableRW()
+	{
+		m_syslock = 0;
+	}
+	
+	LockableRW::~LockableRW()
+	{
+		
+	}
+	
+	int LockableRW::writelock() const
+	{
+		while (1)
+		{
+			while (m_syslock & LF_WRITE_MASK)
+				::YieldProcessor();
+			if ((::InterlockedAdd(&m_syslock, LF_WRITE_FLAG) & LF_WRITE_MASK) == LF_WRITE_FLAG)
+			{
+				while (m_syslock & LF_READ_MASK)
+					::YieldProcessor();
+				return ;
+			}
+			::InterlockedAdd(&m_syslock, -LF_WRITE_FLAG);
+		}
+	}
+	
+	int LockableRW::writeunlock() const
+	{
+		::InterlockedAdd(&m_syslock, -LF_WRITE_FLAG);
+	}
+	
+	int LockableRW::readlock() const
+	{
+		while (1)
+		{
+			while (m_syslock & LF_WRITE_MASK)
+				YieldProcessor();
+			
+			if ((InterlockedIncrement(&m_syslock) & LF_WRITE_MASK) == 0)
+				return;
+			else
+				InterlockedDecrement(&m_syslock);
+		}
+	}
+	
+	int LockableRW::readunlock() const
+	{
+		::InterlockedDecrement(&m_syslock);
+	}
+	
 #elif defined(JSCUTILS_OS_LINUX)
 	Lockable::Lockable()
 	{
@@ -75,6 +131,41 @@ namespace JsCPPUtils
 	{
 		pthread_mutex_unlock((pthread_mutex_t*)&m_mutex);
 		return 1;
+	}
+	
+	
+	LockableRW::LockableRW()
+	{
+		pthread_rwlock_init(&m_syslock, NULL);
+	}
+	
+	LockableRW::~LockableRW()
+	{
+		pthread_rwlock_destroy(&m_syslock);
+	}
+	
+	int LockableRW::writelock() const
+	{
+		pthread_rwlock_wrlock((pthread_rwlock_t*)&m_syslock);
+	}
+	
+	int LockableRW::writeunlock() const
+	{
+		pthread_rwlock_unlock((pthread_rwlock_t*)&m_syslock);
+	}
+	
+	int LockableRW::readlock() const
+	{
+		int rc;
+		while ((rc = pthread_rwlock_rdlock((pthread_rwlock_t*)&m_syslock)) == EAGAIN)
+		{
+			::usleep(1);
+		}
+	}
+	
+	int LockableRW::readunlock() const
+	{
+		pthread_rwlock_unlock((pthread_rwlock_t*)&m_syslock);
 	}
 #endif
 }

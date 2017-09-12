@@ -42,6 +42,30 @@ namespace JsCPPUtils
 		int unlock() const;
 	};
 
+	class LockableRW
+	{
+	private:
+		enum LockFlag
+		{
+			LF_WRITE_MASK = 0x7FF00000,
+			LF_WRITE_FLAG = 0x00100000,
+			LF_READ_MASK  = 0x000FFFFF ///< 하위 20비트를 readlock을 위한 플래그로 사용한다.
+		};
+#if defined(JSCUTILS_OS_WINDOWS)
+		volatile LONG m_syslock;
+#elif defined(JSCUTILS_OS_LINUX)
+		pthread_rwlock_t m_syslock;
+#endif
+
+	public:
+		LockableRW();
+		~LockableRW();
+		int writelock() const;
+		int writeunlock() const;
+		int readlock() const;
+		int readunlock() const;
+	};
+
 }
 
 #endif
