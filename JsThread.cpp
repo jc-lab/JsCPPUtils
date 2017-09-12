@@ -1,7 +1,7 @@
 /**
  * @file	JsThread.cpp
  * @class	JsThread
- * @author	Jichan (development@jc-lab.net / http://ablog.jc-lab.net/category/JsCPPUtils )
+ * @author	Jichan (jic5760@naver.com)
  * @date	2016/11/03
  * @brief	JsThread
  * @copyright Copyright (C) 2016 jichan.\n
@@ -44,7 +44,7 @@ namespace JsCPPUtils
 	}
 #endif
 
-	int JsThread::start(JsCPPUtils::SmartPointer<ThreadContext> *pspThreadCtx, StartRoutine_t startroutine, int param_idx, void *param_ptr, JSTHREAD_THREADID_TYPE *pThreadId)
+	int JsThread::start(JsCPPUtils::SmartPointer<ThreadContext> *pspThreadCtx, StartRoutine_t startroutine, int param_idx, void *param_ptr, JSTHREAD_THREADID_TYPE *pThreadId, const char *szThreadName)
 	{
 		int retval = 0;
 		int nrst;
@@ -88,6 +88,12 @@ namespace JsCPPUtils
 				break;
 			}
 			pThreadCtx->m_tid = pThreadCtx->m_pthread;
+			
+			if (szThreadName != NULL)
+			{
+				pthread_setname_np(pThreadCtx->m_pthread, szThreadName);
+			}
+			
 			step = 3;
 #elif defined(JSCUTILS_OS_WINDOWS)
 			pThreadCtx->m_stop_hEvent = ::CreateEvent(NULL, TRUE, FALSE, NULL);

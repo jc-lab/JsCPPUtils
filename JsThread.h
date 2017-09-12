@@ -1,19 +1,14 @@
 /**
  * @file	JsThread.h
  * @class	JsThread
- * @author	Jichan (development@jc-lab.net / http://ablog.jc-lab.net/category/JsCPPUtils )
+ * @author	Jichan (jic5760@naver.com)
  * @date	2016/11/03
  * @copyright Copyright (C) 2016 jichan.\n
  *            This software may be modified and distributed under the terms
  *            of the MIT license.  See the LICENSE file for details.
  */
 
-#if defined(_MSC_VER) && (_MSC_VER >= 1200)
 #pragma once
-#endif
-
-#ifndef __JSCPPUTILS_JSTHREAD_H__
-#define __JSCPPUTILS_JSTHREAD_H__
 
 #include "Common.h"
 
@@ -143,7 +138,7 @@ namespace JsCPPUtils
 					if (m_status == 1)
 						retval = 1;
 					if (m_status != 0)
-						pthread_cond_signal(&m_cond_send);
+						pthread_cond_signal(&m_cond_ack); // Need check it!!!
 				}
 				else if (timeoutms < 0)
 				{
@@ -435,9 +430,7 @@ namespace JsCPPUtils
 #endif
 			
 	public:
-		static int start(JsCPPUtils::SmartPointer<ThreadContext> *pspThreadCtx, StartRoutine_t startroutine, int param_idx, void *param_ptr, JSTHREAD_THREADID_TYPE *pThreadId = NULL);
+		static int start(JsCPPUtils::SmartPointer<ThreadContext> *pspThreadCtx, StartRoutine_t startroutine, int param_idx, void *param_ptr, JSTHREAD_THREADID_TYPE *pThreadId = NULL, const char *szThreadName = NULL);
 		static int reqStop(ThreadContext *pThreadCtx);
 	};
 }
-
-#endif /* __JSCPPUTILS_JSTHREAD_H__ */
