@@ -13,11 +13,14 @@
 
 namespace JsCPPUtils
 {
-	LockableEx::LockableEx()
+	LockableEx::LockableEx(Lockable *plockref)
 		: m_lock(),
 		m_tinfo(31, 16, 16, 4.0, 2.0, 32767)
 	{
-			
+		if (plockref == NULL)
+			m_plockref = &m_lock;
+		else
+			m_plockref = plockref;
 	}
 
 	LockableEx::~LockableEx()
@@ -33,7 +36,7 @@ namespace JsCPPUtils
 		int &_locked = m_tinfo[dwTid];
 		if (_locked++ == 0)
 		{
-			nrst = m_lock.lock();
+			nrst = m_plockref->lock();
 		}
 		return nrst;
 	}
@@ -45,7 +48,7 @@ namespace JsCPPUtils
 		int &_locked = m_tinfo[dwTid];
 		if (--_locked == 0)
 		{
-			nrst = m_lock.unlock();
+			nrst = m_plockref->unlock();
 			if (earseinmap)
 				m_tinfo.erase(dwTid);
 		}
@@ -59,7 +62,7 @@ namespace JsCPPUtils
 		int &_locked = m_tinfo[curthread];
 		if (_locked++ == 0)
 		{
-			nrst = m_lock.lock();
+			nrst = m_plockref->lock();
 		}
 		return nrst;
 	}
@@ -71,7 +74,7 @@ namespace JsCPPUtils
 		int& _locked = m_tinfo[curthread];
 		if (--_locked == 0)
 		{
-			nrst = m_lock.unlock();
+			nrst = m_plockref->unlock();
 			if (earseinmap)
 				m_tinfo.erase(curthread);
 		}

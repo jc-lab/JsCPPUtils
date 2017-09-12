@@ -24,18 +24,18 @@ namespace JsCPPUtils
 	{
 	private:
 		Lockable m_lock;
+		Lockable *m_plockref;
 #if defined(JSCUTILS_OS_WINDOWS)
-		basic_HashMap<DWORD, int> m_tinfo;
+		HashMap<DWORD, int> m_tinfo;
 #elif defined(JSCUTILS_OS_LINUX)
-		basic_HashMap<pthread_t, int> m_tinfo;
+		HashMap<pthread_t, int> m_tinfo;
 #endif
 
 	public:
-		LockableEx();
+		LockableEx(Lockable *plockref = NULL);
 		~LockableEx();
 		int lock();
 		int unlock(bool earseinmap = false);
-
 	};
 }
 
