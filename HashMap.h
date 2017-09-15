@@ -43,15 +43,7 @@ namespace JsCPPUtils
 		class basic_HashMapNTS
 		{
 		private:
-			template<typename T>
-				struct Check_If_T_Is_Class_Type
-				{
-					template<typename C> static char func(char C::*p);
-					template<typename C> static int func(...);
-					enum{val = sizeof(Check_If_T_Is_Class_Type<T>::template func<T>(0)) == 1};
-				};
-			
-			template<typename T, bool bIsClass = Check_If_T_Is_Class_Type<T>::val>
+			template<typename T, bool bIsClass = is_class<T>::value>
 				class WrappedClass
 				{
 				public:
@@ -75,6 +67,7 @@ namespace JsCPPUtils
 			typedef struct _tag_block
 			{
 				int used;
+				blockindex_t prev;
 				blockindex_t next;
 				TKEY key;
 				TVALUE value;
@@ -98,32 +91,60 @@ namespace JsCPPUtils
 			
 			bool m_freed;
 		
-			int _hash(const TKEY &key)
+			inline int _hash(const TKEY &key)
 			{
 				int i;
 				uint32_t poly = m_poly;
-				uint32_t hash = 0;
-				unsigned char *pkey = (unsigned char*)&key;
-				for (i = 0; i < sizeof(key); i++)
+				uint32_t hval = 0;
+				const unsigned char *pkey = (unsigned char*)&key;
+				const unsigned char *pkeye = pkey + sizeof(key);
+
+				// FNV-A
+	
+				if (sizeof(key) > 4)
 				{
-					poly = (poly << 1) | (poly >> (32 - 1)); // 1bit Left Shift
-					hash = (uint32_t)(poly * hash + pkey[i]);
+					for (i = 0; i < (sizeof(key) >> 2); i++)
+					{
+						hval ^= *((uint32_t*)pkey);
+						hval *= 0x01000193;
+						pkey += 4;
+					}
 				}
-				return hash % m_numofbuckets;
+				while (pkey < pkeye)
+				{
+					hval ^= *pkey++;
+					hval *= 0x01000193;
+				}
+	
+				return hval % m_numofbuckets;
 			}
 		
-			int _hash2(const TKEY &key, uint32_t numofbuckets)
+			inline int _hash2(const TKEY &key, uint32_t numofbuckets)
 			{
 				int i;
 				uint32_t poly = m_poly;
-				uint32_t hash = 0;
-				unsigned char *pkey = (unsigned char*)&key;
-				for (i = 0; i < sizeof(key); i++)
+				uint32_t hval = 0;
+				const unsigned char *pkey = (unsigned char*)&key;
+				const unsigned char *pkeye = pkey + sizeof(key);
+
+				// FNV-A
+	
+				if (sizeof(key) > 4)
 				{
-					poly = (poly << 1) | (poly >> (32 - 1)); // 1bit Left Shift
-					hash = (uint32_t)(poly * hash + pkey[i]);
+					for (i = 0; i < (sizeof(key) >> 2); i++)
+					{
+						hval ^= *((uint32_t*)pkey);
+						hval *= 0x01000193;
+						pkey += 4;
+					}
 				}
-				return hash % numofbuckets;
+				while (pkey < pkeye)
+				{
+					hval ^= *pkey++;
+					hval *= 0x01000193;
+				}
+	
+				return hval % numofbuckets;
 			}
 
 			/*
@@ -149,6 +170,8 @@ namespace JsCPPUtils
 				basic_HashMapNTS<TKEY, TVALUE> *m_pmap;
 				blockindex_t m_nextidx;
 				blockindex_t m_curidx;
+				
+				blockindex_t m_remaincount;
 				
 			private:
 				void _findnext()
@@ -186,6 +209,7 @@ namespace JsCPPUtils
 					m_nextidx = 0;
 					m_curidx = 0;
 					m_itertype = -1;
+					m_remaincount = 0;
 				}
 				
 				Iterator(const Iterator& _ref)
@@ -194,23 +218,65 @@ namespace JsCPPUtils
 					m_nextidx = _ref.m_nextidx;
 					m_curidx = _ref.m_curidx;
 					m_itertype = _ref.m_itertype;
+					m_remaincount = _ref.m_remaincount;
 				}
 				
 				bool hasNext()
 				{
-					return ((m_nextidx > 0) && (m_nextidx < (m_pmap->m_blocksize + 1))) ;
+					return (m_remaincount > 0); //((m_nextidx > 0) && (m_nextidx < (m_pmap->m_blocksize + 1))) ;
 				}
 				
 				TVALUE &next()
 				{
 					m_curidx = m_nextidx;
-					_findnext();
+					m_remaincount--;
+					if (m_remaincount > 0)
+						_findnext();
 					return m_pmap->m_blocks[m_curidx - 1].value;
 				}
 				
 				TKEY getKey()
 				{
 					return m_pmap->m_blocks[m_curidx - 1].key;
+				}
+				
+				void erase()
+				{
+					block_t *pblock = &m_pmap->m_blocks[m_curidx - 1];
+					block_t *pprevblock = NULL;
+					block_t *pnextblock = NULL;
+					int hash = m_pmap->_hash(pblock->key);
+					blockindex_t *pbucket = &m_pmap->m_buckets[hash];
+					int i;
+					
+					if (pblock->next > 0)
+					{
+						pnextblock = &m_pmap->m_blocks[pblock->next - 1];
+						pnextblock->prev = pblock->prev;
+					}
+					if (pblock->prev > 0)
+					{
+						pprevblock = &m_pmap->m_blocks[pblock->prev - 1];
+						pprevblock->next = pblock->next;
+					}else{
+						*pbucket = pblock->next;
+					}
+					
+					if (is_class<TVALUE>::val)
+						pblock->value.~TVALUE();
+					
+					pblock->used = 0;
+					pblock->next = 0;
+					m_pmap->m_blockcount--;
+					
+					for (i = 0; i < JsCPPUtils_HashMap_FREECACHESIZE; i++)
+					{
+						if (m_pmap->m_freecache[i] == 0)
+						{
+							m_pmap->m_freecache[i] = m_curidx;
+							break;
+						}
+					}
 				}
 			};
 			
@@ -266,7 +332,7 @@ namespace JsCPPUtils
 				}
 				if (m_blocks != NULL)
 				{
-					if (Check_If_T_Is_Class_Type<TVALUE>::val)
+					if (is_class<TKEY>::value)
 					{
 						blockindex_t bi;
 						for (bi = 0; bi < m_blocksize; bi++)
@@ -373,7 +439,7 @@ namespace JsCPPUtils
 				int hash = _hash(key);
 				
 				blockindex_t *pbucket = &m_buckets[hash];
-				block_t *pblock = _findblock(*pbucket, key, NULL, pretblockindex);
+				block_t *pblock = _findblock(*pbucket, key, pretblockindex);
 				
 				// new block
 				if (pblock == NULL)
@@ -406,6 +472,7 @@ namespace JsCPPUtils
 					if (*pbucket == 0)
 					{
 						*pbucket = blockindex;
+						pblock->prev = 0;
 					}else{
 						blockindex_t tmpblockidx = *pbucket;
 						while (tmpblockidx)
@@ -414,6 +481,7 @@ namespace JsCPPUtils
 							if (ptmpblock->next == 0)
 							{
 								ptmpblock->next = blockindex;
+								pblock->prev = tmpblockidx;
 								break;
 							}
 							tmpblockidx = ptmpblock->next;
@@ -424,7 +492,7 @@ namespace JsCPPUtils
 				return pblock;
 			}
 			
-			block_t *_findblock(blockindex_t bucket, const TKEY &key, block_t **pprevblock = NULL, blockindex_t *pretblockindex = NULL)
+			block_t *_findblock(blockindex_t bucket, const TKEY &key, blockindex_t *pretblockindex = NULL)
 			{
 				if (bucket != 0)
 				{
@@ -435,8 +503,6 @@ namespace JsCPPUtils
 						block_t *ptmpblock = &m_blocks[tmpblockidx - 1];
 						if (memcmp(&ptmpblock->key, &key, sizeof(TKEY)) == 0)
 						{
-							if (pprevblock)
-								*pprevblock = ptmpprevblock;
 							if (pretblockindex)
 								*pretblockindex = tmpblockidx;
 							return ptmpblock;
@@ -569,15 +635,31 @@ namespace JsCPPUtils
 				blockindex_t blockindex = 0;
 				block_t *pblock;
 				block_t *pprevblock = NULL;
+				block_t *pnextblock = NULL;
 				
 				pbucket = &m_buckets[hash];
-				pblock = _findblock(*pbucket, key, &pprevblock, &blockindex);
+				pblock = _findblock(*pbucket, key, &blockindex);
 				if (pblock != NULL)
 				{
-					if (pprevblock == NULL)
-						*pbucket = pblock->next;
-					else
+					if (pblock->next > 0)
+					{
+						pnextblock = &m_blocks[pblock->next - 1];
+						pnextblock->prev = pblock->prev;
+					}
+					if (pblock->prev > 0)
+					{
+						pprevblock = &m_blocks[pblock->prev - 1];
 						pprevblock->next = pblock->next;
+					}else{
+						*pbucket = pblock->next;
+					}
+					
+					if (is_class<TKEY>::value)
+						pblock->value.~TVALUE();
+					
+					pblock->used = 0;
+					pblock->next = 0;
+					m_blockcount--;
 					
 					for (i = 0; i < JsCPPUtils_HashMap_FREECACHESIZE; i++)
 					{
@@ -587,15 +669,6 @@ namespace JsCPPUtils
 							break;
 						}
 					}
-					
-					if (Check_If_T_Is_Class_Type<TVALUE>::val)
-						pblock->value.~TVALUE();
-					
-					//blockindex
-					
-					pblock->used = 0;
-					pblock->next = 0;
-					m_blockcount--;
 				}
 			}
 			
@@ -605,6 +678,7 @@ namespace JsCPPUtils
 				iter.m_itertype = 0;
 				iter.m_pmap = this;
 				iter.m_nextidx = 0;
+				iter.m_remaincount = m_blockcount;
 				iter._findnext();
 				return iter;
 			}
@@ -616,11 +690,12 @@ namespace JsCPPUtils
 				
 				int hash = _hash(key);
 				blockindex_t bucket = m_buckets[hash];
-				block_t *pblock = _findblock(bucket, key, NULL, &nextbi);
+				block_t *pblock = _findblock(bucket, key, &nextbi);
 				
-				iter.m_itertype = 0;
+				iter.m_itertype = 1;
 				iter.m_pmap = this;
 				iter.m_nextidx = nextbi;
+				iter.m_remaincount = 1;
 				
 				return iter;
 			}
@@ -636,6 +711,7 @@ namespace JsCPPUtils
 				iter.m_itertype = 1;
 				iter.m_pmap = this;
 				iter.m_nextidx = nextbi;
+				iter.m_remaincount = 1;
 				
 				return iter;
 			}
