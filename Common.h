@@ -94,6 +94,26 @@ typedef unsigned __int64 uint64_t;
 
 namespace JsCPPUtils
 {
+	
+#if __cplusplus > 199711L
+	#include <type_traits>
+	template<typename T>
+	struct is_class
+	{
+		enum
+		{
+			value = std::is_class<T>::value;
+		};
+	};
+#else		template<typename T>
+		struct is_class
+		{
+			template<typename C> static char func(char C::*p);
+			template<typename C> static int func(...);
+			enum{value = sizeof(is_class<T>::template func<T>(0)) == 1};
+		};
+#endif
+	
 	class Common
 	{
 	public:
