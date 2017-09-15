@@ -262,7 +262,7 @@ namespace JsCPPUtils
 						*pbucket = pblock->next;
 					}
 					
-					if (is_class<TVALUE>::val)
+					if (is_class<TVALUE>::value)
 						pblock->value.~TVALUE();
 					
 					pblock->used = 0;
