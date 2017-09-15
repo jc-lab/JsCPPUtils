@@ -76,19 +76,21 @@ namespace JsCPPUtils
 		{
 			while (m_syslock & LF_WRITE_MASK)
 				::YieldProcessor();
-			if ((::InterlockedAdd(&m_syslock, LF_WRITE_FLAG) & LF_WRITE_MASK) == LF_WRITE_FLAG)
+			if ((::InterlockedExchangeAdd((volatile LONG*)&m_syslock, LF_WRITE_FLAG) & LF_WRITE_MASK) == LF_WRITE_FLAG)
 			{
 				while (m_syslock & LF_READ_MASK)
 					::YieldProcessor();
-				return ;
+				return 1;
 			}
-			::InterlockedAdd(&m_syslock, -LF_WRITE_FLAG);
+			::InterlockedExchangeAdd((volatile LONG*)&m_syslock, -LF_WRITE_FLAG);
 		}
+		return 1;
 	}
 	
 	int LockableRW::writeunlock() const
 	{
-		::InterlockedAdd(&m_syslock, -LF_WRITE_FLAG);
+		::InterlockedExchangeAdd((volatile LONG*)&m_syslock, -LF_WRITE_FLAG);
+		return 1;
 	}
 	
 	int LockableRW::readlock() const
@@ -98,16 +100,18 @@ namespace JsCPPUtils
 			while (m_syslock & LF_WRITE_MASK)
 				YieldProcessor();
 			
-			if ((InterlockedIncrement(&m_syslock) & LF_WRITE_MASK) == 0)
-				return;
+			if ((InterlockedIncrement((volatile LONG*)&m_syslock) & LF_WRITE_MASK) == 0)
+				return 1;
 			else
-				InterlockedDecrement(&m_syslock);
+				InterlockedDecrement((volatile LONG*)&m_syslock);
 		}
+		return 1;
 	}
 	
 	int LockableRW::readunlock() const
 	{
-		::InterlockedDecrement(&m_syslock);
+		::InterlockedDecrement((volatile LONG*)&m_syslock);
+		return 1;
 	}
 	
 #elif defined(JSCUTILS_OS_LINUX)
@@ -147,11 +151,13 @@ namespace JsCPPUtils
 	int LockableRW::writelock() const
 	{
 		pthread_rwlock_wrlock((pthread_rwlock_t*)&m_syslock);
+		return 1;
 	}
 	
 	int LockableRW::writeunlock() const
 	{
 		pthread_rwlock_unlock((pthread_rwlock_t*)&m_syslock);
+		return 1;
 	}
 	
 	int LockableRW::readlock() const
@@ -161,11 +167,13 @@ namespace JsCPPUtils
 		{
 			::usleep(1);
 		}
+		return 1;
 	}
 	
 	int LockableRW::readunlock() const
 	{
 		pthread_rwlock_unlock((pthread_rwlock_t*)&m_syslock);
+		return 1;
 	}
 #endif
 }
