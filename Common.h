@@ -92,26 +92,32 @@ typedef unsigned __int64 uint64_t;
 
 #ifdef __cplusplus
 
+#if (__cplusplus >= 201103L) || ((__cplusplus >= 199711) && defined(_MSC_VER))
+#include <type_traits>
+#endif
+
 namespace JsCPPUtils
 {
 	
-#if __cplusplus > 199711L
-	#include <type_traits>
+#if (__cplusplus >= 201103L) || ((__cplusplus >= 199711) && defined(_MSC_VER))
 	template<typename T>
 	struct is_class
 	{
 		enum
 		{
-			value = std::is_class<T>::value;
+			value = std::is_class<T>::value
 		};
 	};
-#else		template<typename T>
-		struct is_class
-		{
-			template<typename C> static char func(char C::*p);
-			template<typename C> static int func(...);
-			enum{value = sizeof(is_class<T>::template func<T>(0)) == 1};
+#else
+	template<typename T>
+	struct is_class
+	{
+		template<typename C> static char func(char C::*p);
+		template<typename C> static int func(...);
+		enum{
+			value = sizeof(is_class<T>::template func<T>(0)) == 1
 		};
+	};
 #endif
 	
 	class Common
