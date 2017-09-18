@@ -50,6 +50,8 @@ namespace JsCPPUtils
 			virtual bool operator<(T y) const = 0;
 			virtual bool operator>=(T y) const = 0;
 			virtual bool operator<=(T y) const = 0;
+
+			virtual T getadd(T value) = 0;
 		};
 
 #if defined(JSCUTILS_OS_WINDOWS)
@@ -159,6 +161,11 @@ namespace JsCPPUtils
 				T tval = (T)InterlockedExchange64((volatile LONGLONG *)&m_value, 0);
 				return (tval <= y);
 			}
+
+			T getadd(T value)
+			{
+				return ::InterlockedExchangeAdd64(&m_value, (LONGLONG)y);
+			}
 		};
 #endif
 
@@ -265,6 +272,11 @@ namespace JsCPPUtils
 			{
 				T tval = (T)InterlockedExchangeAdd((volatile LONG *)&m_value, 0);
 				return (tval <= y);
+			}
+
+			T getadd(T value)
+			{
+				return (T)::InterlockedExchangeAdd(&m_value, (LONGLONG)y);
 			}
 		};
 	
@@ -422,6 +434,16 @@ namespace JsCPPUtils
 				r = m_value <= y;
 				unlock();
 				return r;
+			}
+
+			T getadd(T value)
+			{
+				T initialvalue;
+				lock();
+				initialvalue = m_value;
+				m_value += y;
+				unlock();
+				return initialvalue;
 			}
 		};
 	
@@ -623,6 +645,16 @@ namespace JsCPPUtils
 				pthread_rwlock_unlock((pthread_rwlock_t*)&m_syslock);
 				return r;
 			}
+
+			T getadd(T value)
+			{
+				T initialvalue;
+				pthread_rwlock_wrlock(&m_syslock);
+				initialvalue = m_value;
+				m_value += y;
+				pthread_rwlock_unlock(&m_syslock);
+				return initialvalue;
+			}
 		};
 
 #endif
@@ -751,6 +783,11 @@ namespace JsCPPUtils
 			bool operator<=(T y) const
 			{
 				return m_pimpl->operator<=(y);
+			}
+
+			T getadd(T value)
+			{
+				return m_pimpl->getadd(value);
 			}
 		};
 
