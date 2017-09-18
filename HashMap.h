@@ -234,6 +234,11 @@ namespace JsCPPUtils
 						_findnext();
 					return m_pmap->m_blocks[m_curidx - 1].value;
 				}
+
+				TVALUE *getValuePtr()
+				{
+					return &m_pmap->m_blocks[m_curidx - 1].value;
+				}
 				
 				TKEY getKey()
 				{
