@@ -8,7 +8,9 @@
  *            of the MIT license.  See the LICENSE file for details.
  */
 
+#if defined(_MSC_VER) && (_MSC_VER >= 1200)
 #pragma once
+#endif
 
 #include "Common.h"
 
