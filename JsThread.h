@@ -1,7 +1,7 @@
 /**
  * @file	JsThread.h
  * @class	JsThread
- * @author	Jichan (jic5760@naver.com)
+ * @author	Jichan (development@jc-lab.net / http://ablog.jc-lab.net/category/JsCPPUtils )
  * @date	2016/11/03
  * @copyright Copyright (C) 2016 jichan.\n
  *            This software may be modified and distributed under the terms
