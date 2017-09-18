@@ -164,7 +164,7 @@ namespace JsCPPUtils
 
 			T getadd(T value)
 			{
-				return ::InterlockedExchangeAdd64(&m_value, (LONGLONG)y);
+				return ::InterlockedExchangeAdd64(&m_value, (LONGLONG)value);
 			}
 		};
 #endif
@@ -276,7 +276,7 @@ namespace JsCPPUtils
 
 			T getadd(T value)
 			{
-				return (T)::InterlockedExchangeAdd(&m_value, (LONGLONG)y);
+				return (T)::InterlockedExchangeAdd(&m_value, (LONGLONG)value);
 			}
 		};
 	
@@ -441,7 +441,7 @@ namespace JsCPPUtils
 				T initialvalue;
 				lock();
 				initialvalue = m_value;
-				m_value += y;
+				m_value += value;
 				unlock();
 				return initialvalue;
 			}
@@ -651,7 +651,7 @@ namespace JsCPPUtils
 				T initialvalue;
 				pthread_rwlock_wrlock(&m_syslock);
 				initialvalue = m_value;
-				m_value += y;
+				m_value += value;
 				pthread_rwlock_unlock(&m_syslock);
 				return initialvalue;
 			}
