@@ -72,18 +72,9 @@ namespace JsCPPUtils
 	
 	int LockableRW::writelock() const
 	{
-		while (1)
-		{
-			while (m_syslock & LF_WRITE_MASK)
-				::YieldProcessor();
-			if ((::InterlockedExchangeAdd((volatile LONG*)&m_syslock, LF_WRITE_FLAG) & LF_WRITE_MASK) == LF_WRITE_FLAG)
-			{
-				while (m_syslock & LF_READ_MASK)
-					::YieldProcessor();
-				return 1;
-			}
-			::InterlockedExchangeAdd((volatile LONG*)&m_syslock, -LF_WRITE_FLAG);
-		}
+		::InterlockedExchangeAdd((volatile LONG*)&m_syslock, LF_WRITE_FLAG);
+		while (m_syslock != LF_WRITE_FLAG)
+			::YieldProcessor();
 		return 1;
 	}
 	
