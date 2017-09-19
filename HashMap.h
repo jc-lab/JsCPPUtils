@@ -700,7 +700,7 @@ namespace JsCPPUtils
 				iter.m_itertype = 1;
 				iter.m_pmap = this;
 				iter.m_nextidx = nextbi;
-				iter.m_remaincount = 1;
+				iter.m_remaincount = (pblock != NULL) ? 1 : 0;
 				
 				return iter;
 			}
