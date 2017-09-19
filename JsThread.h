@@ -12,6 +12,9 @@
 #pragma once
 #endif
 
+#ifndef __JSCPPUTILS_JSTHREAD_H__
+#define __JSCPPUTILS_JSTHREAD_H__
+
 #include "Common.h"
 
 #include <stdlib.h>
@@ -86,6 +89,30 @@ namespace JsCPPUtils
 			int _inthread_isRun();
 			RunningStatus getRunningStatus();
 			JSTHREAD_THREADID_TYPE getThreadId();
+			int join();
+
+			~ThreadContext()
+			{
+				if((m_runningstatus.get() > 0) && (m_runningstatus.get() < 3))
+				{
+					reqStop();
+					join();
+				}
+#if defined(JSCUTILS_OS_LINUX)
+				::pthread_mutex_destroy(&m_run_mutex);
+#elif defined(JSCUTILS_OS_WINDOWS)
+				if((m_stop_hEvent != NULL) && (m_stop_hEvent != INVALID_HANDLE_VALUE))
+				{
+					::CloseHandle(m_stop_hEvent);
+					m_stop_hEvent = NULL;
+				}
+				if((m_hThread != NULL) && (m_hThread != INVALID_HANDLE_VALUE))
+				{
+					::CloseHandle(m_hThread);
+					m_hThread = NULL;
+				}
+#endif
+			}
 		};
 		
 		// This is not async-signal safe
@@ -436,3 +463,5 @@ namespace JsCPPUtils
 		static int reqStop(ThreadContext *pThreadCtx);
 	};
 }
+
+#endif /* __JSCPPUTILS_JSTHREAD_H__ */

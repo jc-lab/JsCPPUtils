@@ -219,6 +219,19 @@ namespace JsCPPUtils
 		return m_tid;
 	}
 #endif
+
+	int JsThread::ThreadContext::join()
+	{
+#if defined(JSCUTILS_OS_WINDOWS)
+		if((m_stop_hEvent == NULL) || (m_stop_hEvent == INVALID_HANDLE_VALUE))
+			return 0;
+		::WaitForSingleObject(m_stop_hEvent, 0);
+#elif defined(JSCUTILS_OS_LINUX)
+		void *pthret = NULL;
+		pthread_join(m_pthread, &pthret);
+#endif
+		return 1;
+	}
 	
 	
 }
