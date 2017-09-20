@@ -68,6 +68,43 @@ namespace JsCPPUtils
 	{
 	}
 
+#if defined(JSCUTILS_OS_WINDOWS)
+		Logger::Logger(OutputType outputType, const wchar_t *szFilePath, CallbackFunc_t cbfunc, void *cbuserptr)
+		{
+			m_outtype = outputType;
+			m_fp = NULL;
+			m_cbfunc = NULL;
+			m_cbuserptr = NULL;
+			m_lasterrno = 0;
+
+			switch(m_outtype)
+			{
+			case TYPE_STDOUT:
+				m_fp = stdout;
+				break;
+			case TYPE_STDERR:
+				m_fp = stderr;
+				break;
+			case TYPE_FILE: {
+#ifdef _JSCUTILS_MSVC_CRT_SECURE
+				errno_t eno;
+				eno = _wfopen_s(&m_fp, szFilePath, L"a+");
+				m_lasterrno = (int)eno;
+#else
+				m_fp = wfopen(szFilePath, L"a+");
+				if(m_fp == NULL)
+					m_lasterrno = errno;
+#endif
+				}
+				break;
+			case TYPE_CALLBACK:
+				m_cbfunc = cbfunc;
+				m_cbuserptr = cbuserptr;
+				break;
+			}
+		}
+#endif
+
 
 	Logger::~Logger()
 	{

@@ -67,6 +67,9 @@ namespace JsCPPUtils
 	public:
 		Logger(OutputType outputType, const char *szFilePath, CallbackFunc_t cbfunc, void *cbuserptr);
 		Logger(Logger *pParent, const std::string& strPrefixName);
+#if defined(JSCUTILS_OS_WINDOWS)
+		Logger(OutputType outputType, const wchar_t *szFilePath, CallbackFunc_t cbfunc, void *cbuserptr);
+#endif
 		~Logger();
 		void setParent(Logger *pParent);
 		void printf(LogType logtype, const char* format, ...);
