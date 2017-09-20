@@ -1,15 +1,3 @@
-/**
- * @file	JsClientSocket.cpp
- * @class	JsClientSocket
- * @author	Jichan (development@jc-lab.net / http://ablog.jc-lab.net/category/JsCPPUtils )
- * @date	2017/04/24
- * @brief	TCP Client 소켓을 사용하기 쉽게 만든 클래스 (SSL지원).
- * @warning	아직 Windows만 지원함...
- * @copyright Copyright (C) 2016 jichan.\n
- *            This software may be modified and distributed under the terms
- *            of the MIT license.  See the LICENSE file for details.
- */
-
 #include "JsClientSocket.h"
 
 #include <stdio.h>

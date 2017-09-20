@@ -15,6 +15,10 @@
 #ifndef __JSCPPUTILS_JSCLIENTSOCKET_H__
 #define __JSCPPUTILS_JSCLIENTSOCKET_H__
 
+#ifndef _WINSOCKAPI_
+#define _WINSOCKAPI_
+#endif
+
 #include "Common.h"
 
 #include <stdlib.h>
