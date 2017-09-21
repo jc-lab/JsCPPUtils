@@ -197,6 +197,8 @@ namespace JsCPPUtils
 			explicit SmartPointer(T* p, bool isRoot)
 				: m_pLock(NULL)
 				, m_refCount(0)
+				, m_root_smartptr(NULL)
+				, m_ptr(NULL)
 			{
 				m_isRoot = isRoot ? 1 : 0;
 				if (isRoot)
@@ -206,7 +208,8 @@ namespace JsCPPUtils
 					m_pLock = new Lockable();
 				} else {
 					m_ptr = NULL;
-					m_root_smartptr = new SmartPointer<T>(p);
+					if(p != NULL)
+						m_root_smartptr = new SmartPointer<T>(p);
 				}
 			}
 
@@ -234,7 +237,8 @@ namespace JsCPPUtils
 					m_refCount++;
 					m_pLock->unlock();
 				}else if(m_isRoot == 0){
-					m_root_smartptr->addRef();
+					if(m_root_smartptr)
+						m_root_smartptr->addRef();
 				}else{
 					printf("BUG DETECTED!\n");
 				}
@@ -306,16 +310,17 @@ namespace JsCPPUtils
 				, m_pLock(NULL)
 				, m_refCount(0)
 			{
-				if (::_JsCPPUtils_private::Loki::SuperSubclassStrict<SmartPointer<T>, T >::value)
+				if(p != NULL)
 				{
-					m_root_smartptr = (SmartPointer<T>*)p;
+					if (::_JsCPPUtils_private::Loki::SuperSubclassStrict<SmartPointer<T>, T >::value)
+					{
+						m_root_smartptr = (SmartPointer<T>*)p;
+					}else{
+						m_root_smartptr = new SmartPointer<T>(p, true);
+					}
+					m_ptr = m_root_smartptr->m_ptr;
+					m_root_smartptr->addRef();
 				}
-				else
-				{
-					m_root_smartptr = new SmartPointer<T>(p, true);
-				}
-				m_ptr = m_root_smartptr->m_ptr;
-				m_root_smartptr->addRef();
 			}
 
 					// Copy constructor.
@@ -390,14 +395,20 @@ namespace JsCPPUtils
 				if (m_root_smartptr != NULL)
 					m_root_smartptr->delRef();
 				
-				if (::_JsCPPUtils_private::Loki::SuperSubclassStrict<SmartPointer<T>, T >::value)
+				if(p == NULL)
 				{
-					m_root_smartptr = (SmartPointer<T>*)p;
+					m_root_smartptr = NULL;
+					m_ptr = NULL;
 				}else{
-					m_root_smartptr = new SmartPointer(p, true);
+					if (::_JsCPPUtils_private::Loki::SuperSubclassStrict<SmartPointer<T>, T >::value)
+					{
+						m_root_smartptr = (SmartPointer<T>*)p;
+					}else{
+						m_root_smartptr = new SmartPointer(p, true);
+					}
+					m_ptr = m_root_smartptr->m_ptr;
+					m_root_smartptr->addRef();
 				}
-				m_ptr = m_root_smartptr->m_ptr;
-				m_root_smartptr->addRef();
 				return *this;
 			}
 			
