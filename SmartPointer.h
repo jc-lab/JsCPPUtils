@@ -22,6 +22,8 @@
 
 #include "Lockable.h"
 
+#include <Windows.h>
+
 /******************** Loki begin ********************/
 
 #ifndef __JSCPPUTILS_PRIVATE_LOKI_SUPERCLASSCHECKER
@@ -237,10 +239,10 @@ namespace JsCPPUtils
 					m_refCount++;
 					m_pLock->unlock();
 				}else if(m_isRoot == 0){
-					if(m_root_smartptr)
-						m_root_smartptr->addRef();
+					m_root_smartptr->addRef();
 				}else{
 					printf("BUG DETECTED!\n");
+					::MessageBox(NULL, _T("(1) 버그가 발견되었습니다! 작업관리자에서 덤프파일을 생성해 주시고 관리자에게 문의해 주시기 바랍니다."), _T("BUG DETECTED!"), MB_OK);
 				}
 			}
 
@@ -270,6 +272,7 @@ namespace JsCPPUtils
 					}else if(m_refCount < 0)
 					{
 						printf("BUG DETECTED!\n");
+						::MessageBox(NULL, _T("(2) 버그가 발견되었습니다! 작업관리자에서 덤프파일을 생성해 주시고 관리자에게 문의해 주시기 바랍니다."), _T("BUG DETECTED!"), MB_OK);
 						assert(m_isRoot >= 0);
 					}
 					m_pLock->unlock();
@@ -280,6 +283,7 @@ namespace JsCPPUtils
 					return false;
 				}else{
 					printf("BUG DETECTED!\n");
+					::MessageBox(NULL, _T("(3) 버그가 발견되었습니다! 작업관리자에서 덤프파일을 생성해 주시고 관리자에게 문의해 주시기 바랍니다."), _T("BUG DETECTED!"), MB_OK);
 					assert(m_isRoot >= 0);
 				}
 				return false;
@@ -365,6 +369,7 @@ namespace JsCPPUtils
 				}else if(m_isRoot != 1)
 				{
 					printf("BUG DETECTED!\n");
+					::MessageBox(NULL, _T("(4) 버그가 발견되었습니다! 작업관리자에서 덤프파일을 생성해 주시고 관리자에게 문의해 주시기 바랍니다."), _T("BUG DETECTED!"), MB_OK);
 				}
 				if (m_pLock != NULL)
 				{
@@ -439,29 +444,59 @@ namespace JsCPPUtils
 				}
 			}
 
-			bool operator!() const
+			inline bool operator!() const
 			{
 				return (m_ptr == NULL);
 			}
 
-			bool operator==(SmartPointer<T> p) const
+			inline bool operator==(SmartPointer<T> p) const
 			{
 				return m_ptr == p.m_ptr;
 			}
-
-			bool operator!=(SmartPointer<T> p) const
+			inline bool operator!=(SmartPointer<T> p) const
 			{
 				return m_ptr != p.m_ptr;
 			}
+			inline bool operator<(SmartPointer<T> p) const
+			{
+				return m_ptr < p.m_ptr;
+			}
+			inline bool operator>(SmartPointer<T> p) const
+			{
+				return m_ptr > p.m_ptr;
+			}
+			inline bool operator<=(SmartPointer<T> p) const
+			{
+				return !(m_ptr > p.m_ptr);
+			}
+			inline bool operator>=(SmartPointer<T> p) const
+			{
+				return !(m_ptr < p.m_ptr);
+			}
 
-			bool operator==(T* p) const
+			inline bool operator==(T* p) const
 			{
 				return m_ptr == p;
 			}
-
-			bool operator!=(T* p) const
+			inline bool operator!=(T* p) const
 			{
 				return m_ptr != p;
+			}
+			inline bool operator<(T* p) const
+			{
+				return m_ptr < p;
+			}
+			inline bool operator>(T* p) const
+			{
+				return m_ptr > p;
+			}
+			inline bool operator<=(T* p) const
+			{
+				return !(m_ptr > p);
+			}
+			inline bool operator>=(T* p) const
+			{
+				return !(m_ptr < p);
 			}
 
 			SmartPointer<T> *detach()
