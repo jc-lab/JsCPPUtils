@@ -57,7 +57,7 @@ namespace JsCPPUtils
 		typedef int (*daemonstartup_t)(Daemon *pdaemon, void *cbparam, int argc, TCHAR *argv[]);
 		typedef int (*daemonmain_t)(Daemon *pdaemon, void *cbparam, int argc, TCHAR *argv[]);
 
-		typedef void (*fnServiceCtrlHandler_t)(Daemon *pDaemon, DWORD dwCtrlCode);
+		typedef void (*fnServiceCtrlHandler_t)(Daemon *pDaemon, DWORD dwControl, DWORD dwEventType, LPVOID lpEventData);
 
 #endif
 		typedef void (*helphandler_t)(Daemon *pdaemon, void *cbparam);
@@ -114,7 +114,7 @@ namespace JsCPPUtils
 		
 #if defined(JSCUTILS_OS_WINDOWS)
 		static VOID WINAPI _ServiceMain(DWORD argc, LPTSTR *argv);
-		static VOID WINAPI _ServiceCtrlHandler(DWORD CtrlCode);
+		static DWORD WINAPI _ServiceCtrlHandlerEx(DWORD dwControl, DWORD dwEventType, LPVOID lpEventData, LPVOID lpContext);
 		static DWORD WINAPI _ServiceWorkerThread(LPVOID lpParam);
 #endif
 		

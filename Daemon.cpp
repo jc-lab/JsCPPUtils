@@ -693,14 +693,14 @@ namespace JsCPPUtils {
 		::OutputDebugStringW(szBuffer);
 	}
 
-	VOID WINAPI Daemon::_ServiceMain(DWORD argc, LPTSTR *argv)
+	VOID Daemon::_ServiceMain(DWORD argc, LPTSTR *argv)
 	{
 		DWORD Status = E_FAIL;
 		HANDLE hThread;
 
 		OutputDebugString(_T("My Sample Service: ServiceMain: Entry"));
 
-		m_instance->m_StatusHandle = RegisterServiceCtrlHandler(m_instance->m_strServiceName.c_str(), _ServiceCtrlHandler);
+		m_instance->m_StatusHandle = RegisterServiceCtrlHandlerEx(m_instance->m_strServiceName.c_str(), _ServiceCtrlHandlerEx, m_instance);
 
 		if (m_instance->m_StatusHandle == NULL) 
 		{
@@ -787,36 +787,37 @@ namespace JsCPPUtils {
 
 		return;
 	}
-
-	VOID WINAPI Daemon::_ServiceCtrlHandler(DWORD CtrlCode)
+	
+	DWORD WINAPI Daemon::_ServiceCtrlHandlerEx(DWORD dwControl, DWORD dwEventType, LPVOID lpEventData, LPVOID lpContext)
 	{
+		Daemon *pDaemon = (Daemon*)lpContext;
 		OutputDebugString(_T("My Sample Service: ServiceCtrlHandler: Entry"));
 
-		switch (CtrlCode) 
+		switch (dwControl) 
 		{
 		 case SERVICE_CONTROL_STOP :
 
 			OutputDebugString(_T("My Sample Service: ServiceCtrlHandler: SERVICE_CONTROL_STOP Request"));
 
-			if (m_instance->m_ServiceStatus.dwCurrentState != SERVICE_RUNNING)
+			if (pDaemon->m_ServiceStatus.dwCurrentState != SERVICE_RUNNING)
 			   break;
 
 			/* 
 			 * Perform tasks neccesary to stop the service here 
 			 */
         
-			m_instance->m_ServiceStatus.dwControlsAccepted = 0;
-			m_instance->m_ServiceStatus.dwCurrentState = SERVICE_STOP_PENDING;
-			m_instance->m_ServiceStatus.dwWin32ExitCode = 0;
-			m_instance->m_ServiceStatus.dwCheckPoint = 4;
+			pDaemon->m_ServiceStatus.dwControlsAccepted = 0;
+			pDaemon->m_ServiceStatus.dwCurrentState = SERVICE_STOP_PENDING;
+			pDaemon->m_ServiceStatus.dwWin32ExitCode = 0;
+			pDaemon->m_ServiceStatus.dwCheckPoint = 4;
 
-			if(SetServiceStatus(m_instance->m_StatusHandle, &m_instance->m_ServiceStatus) == FALSE)
+			if(SetServiceStatus(pDaemon->m_StatusHandle, &pDaemon->m_ServiceStatus) == FALSE)
 			{
 				OutputDebugString(_T("My Sample Service: ServiceCtrlHandler: SetServiceStatus returned error"));
 			}
 
 			// This will signal the worker thread to start shutting down
-			m_instance->m_runstatus.getifset(2, 1);
+			pDaemon->m_runstatus.getifset(2, 1);
 
 			break;
 
@@ -824,12 +825,14 @@ namespace JsCPPUtils {
 			 break;
 		}
 
-		if(m_instance->m_fnServiceCtrlHandler != NULL)
+		if(pDaemon->m_fnServiceCtrlHandler != NULL)
 		{
-			m_instance->m_fnServiceCtrlHandler(m_instance, CtrlCode);
+			pDaemon->m_fnServiceCtrlHandler(pDaemon, dwControl, dwEventType, lpEventData);
 		}
 
 		OutputDebugString(_T("My Sample Service: ServiceCtrlHandler: Exit"));
+
+		return NO_ERROR;
 	}
 
 	DWORD WINAPI Daemon::_ServiceWorkerThread(LPVOID lpParam)
