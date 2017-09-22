@@ -25,6 +25,8 @@
 #include <pwd.h>
 #include <grp.h>
 #include <errno.h>
+#else
+#include "StringEncoding.h"
 #endif
 
 namespace JsCPPUtils {
@@ -87,6 +89,7 @@ namespace JsCPPUtils {
 #if defined(JSCUTILS_OS_WINDOWS)
 		memset(&m_ServiceStatus, 0, sizeof(m_ServiceStatus));
 		m_StatusHandle = NULL;
+		m_fnServiceCtrlHandler = NULL;
 #endif
 
 		m_isDaemon = false;
@@ -471,6 +474,13 @@ namespace JsCPPUtils {
 	}
 
 #elif defined(JSCUTILS_OS_WINDOWS)
+
+
+	void Daemon::cbLoggerToDebugOutput(void *userptr, const char *stroutput)
+	{
+		::OutputDebugStringA(stroutput);
+	}
+
 	int Daemon::main(int argc, _JSCPPUTILS_DAEMON_DEFCHARTYPE *argv[])
 	{
 		int nrst;
@@ -487,6 +497,20 @@ namespace JsCPPUtils {
 		nrst = main_parseArgs(argc, argv);
 		if (nrst != 0)
 			return nrst;
+
+		if (this->isArgContain(_T("logfile")))
+		{
+			if(m_plogger != NULL)
+			{
+				delete m_plogger;
+				m_plogger = NULL;
+			}
+			m_plogger = new Logger(Logger::TYPE_FILE, this->getArg(_T("logfile")).c_str(), NULL, NULL);
+		}
+		if(m_plogger == NULL)
+		{
+			m_plogger = new Logger(Logger::TYPE_CALLBACK, (const char*)NULL, cbLoggerToDebugOutput, NULL);
+		}
 		
 		if(m_daemonstartup != NULL)
 		{
@@ -643,6 +667,12 @@ namespace JsCPPUtils {
 		return 0;
 	}
 
+	
+	void Daemon::setServiceCtrlHandler(fnServiceCtrlHandler_t fnHandler)
+	{
+		m_fnServiceCtrlHandler = fnHandler;
+	}
+
 	void Daemon::sysDebugPrintf(const char *format, ...)
 	{
 		char szBuffer[1024];
@@ -792,6 +822,11 @@ namespace JsCPPUtils {
 
 		 default:
 			 break;
+		}
+
+		if(m_instance->m_fnServiceCtrlHandler != NULL)
+		{
+			m_instance->m_fnServiceCtrlHandler(m_instance, CtrlCode);
 		}
 
 		OutputDebugString(_T("My Sample Service: ServiceCtrlHandler: Exit"));

@@ -56,6 +56,9 @@ namespace JsCPPUtils
 #elif defined(JSCUTILS_OS_WINDOWS)
 		typedef int (*daemonstartup_t)(Daemon *pdaemon, void *cbparam, int argc, TCHAR *argv[]);
 		typedef int (*daemonmain_t)(Daemon *pdaemon, void *cbparam, int argc, TCHAR *argv[]);
+
+		typedef void (*fnServiceCtrlHandler_t)(Daemon *pDaemon, DWORD dwCtrlCode);
+
 #endif
 		typedef void (*helphandler_t)(Daemon *pdaemon, void *cbparam);
 
@@ -67,6 +70,8 @@ namespace JsCPPUtils
 #if defined(JSCUTILS_OS_WINDOWS)
 		SERVICE_STATUS        m_ServiceStatus;
 		SERVICE_STATUS_HANDLE m_StatusHandle;
+
+		fnServiceCtrlHandler_t m_fnServiceCtrlHandler;
 #endif
 
 		/**
@@ -157,6 +162,8 @@ namespace JsCPPUtils
 #if defined(JSCUTILS_OS_WINDOWS)
 		static void sysDebugPrintf(const char *format, ...);
 		static void sysDebugPrintf(const wchar_t *format, ...);
+		static void cbLoggerToDebugOutput(void *userptr, const char *stroutput);
+		void setServiceCtrlHandler(fnServiceCtrlHandler_t fnHandler);
 #endif
 	};
 
