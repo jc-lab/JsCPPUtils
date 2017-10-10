@@ -259,6 +259,8 @@ namespace JsCPPUtils
 		}
 	};
 
+#endif
+
 	template <typename T>
 	class basic_AtomicNumMutex : public basic_AtomicNumAbstract<T>, private JsCPPUtils::Lockable
 	{
@@ -415,7 +417,6 @@ namespace JsCPPUtils
 			return r;
 		}
 	};
-#endif
 
 	template <typename T>
 	class AtomicNum
@@ -430,11 +431,13 @@ namespace JsCPPUtils
 			{
 				m_pimpl = new basic_AtomicNumSYS64<T>(initialvalue);
 			}else
-#endif
+#else
 			if(sizeof(T) <= 4)
 			{
 				m_pimpl = new basic_AtomicNumSYS32<T>(initialvalue);
-			}else{
+			}else
+#endif
+			{
 				m_pimpl = new basic_AtomicNumMutex<T>(initialvalue);
 			}
 		}
