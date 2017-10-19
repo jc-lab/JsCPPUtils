@@ -18,23 +18,54 @@
 
 #include "Logger.h"
 
+#ifdef JSCUTILS_OS_WINDOWS
+#include <io.h>
+#include <fcntl.h>
+#endif
+
 #ifdef HAS_SYSLOG
 #include <syslog.h>
 #endif
 
 namespace JsCPPUtils
 {
-
-	Logger::Logger(OutputType outputType, const char *szFilePath, CallbackFunc_t cbfunc, void *cbuserptr) : 
-		m_pParent(NULL)
+	Logger::Logger()
 	{
-		m_outtype = outputType;
+		m_pParent = NULL;
+		m_outtype = TYPE_NULL;
 		m_fp = NULL;
 		m_cbfunc = NULL;
 		m_cbuserptr = NULL;
 		m_lasterrno = 0;
+	}
 
-		switch(m_outtype)
+	Logger::Logger(OutputType outputType, const char *szFilePath, CallbackFunc_t cbfunc, void *cbuserptr)
+	{
+		init(outputType, szFilePath, cbfunc, cbuserptr);
+	}
+
+	void Logger::close()
+	{
+		if (m_fp != NULL)
+		{
+			fclose(m_fp);
+			m_fp = NULL;
+		}
+		m_pParent = NULL;
+		m_outtype = TYPE_NULL;
+		m_fp = NULL;
+		m_cbfunc = NULL;
+		m_cbuserptr = NULL;
+		m_lasterrno = 0;
+	}
+
+	int Logger::init(OutputType outputType, const char *szFilePath, CallbackFunc_t cbfunc, void *cbuserptr)
+	{
+		int retval = 1;
+		close();
+		m_lasterrno = 0;
+
+		switch(outputType)
 		{
 		case TYPE_STDOUT:
 			m_fp = stdout;
@@ -43,10 +74,34 @@ namespace JsCPPUtils
 			m_fp = stderr;
 			break;
 		case TYPE_FILE: {
-#ifdef _JSCUTILS_MSVC_CRT_SECURE
-			errno_t eno;
-			eno = fopen_s(&m_fp, szFilePath, "a+");
-			m_lasterrno = (int)eno;
+#ifdef JSCUTILS_OS_WINDOWS
+			HANDLE hFile = ::CreateFileA(szFilePath, FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+			int fd;
+			
+			if ((hFile == NULL) || (hFile == INVALID_HANDLE_VALUE))
+			{
+				DWORD dwErr = ::GetLastError();
+				m_lasterrno = dwErr;
+				retval = -((int)dwErr);
+				break;
+			}
+			fd = ::_open_osfhandle((intptr_t)hFile, _O_RDWR); // _O_APPEND
+			if (fd < 0)
+			{
+				DWORD dwErr = ::GetLastError();
+				m_lasterrno = dwErr;
+				retval = -((int)dwErr);
+				break;
+			}
+			m_fp = _fdopen(fd, "a");
+			if (m_fp == NULL)
+			{
+				DWORD dwErr = ::GetLastError();
+				m_lasterrno = dwErr;
+				retval = -((int)dwErr);
+				_close(fd);
+				break;
+			}
 #else
 			m_fp = fopen(szFilePath, "a+");
 			if(m_fp == NULL)
@@ -59,69 +114,123 @@ namespace JsCPPUtils
 			m_cbuserptr = cbuserptr;
 			break;
 		}
-	}
-	
-	Logger::Logger(Logger *pParent, const std::string& strPrefixName)	: 
-		m_pParent(pParent),
-		m_strPrefixName(strPrefixName),
-		m_outtype(TYPE_NULL)
-	{
+
+		if(retval == 1)
+			m_outtype = outputType;
+
+		return retval;
 	}
 
 #if defined(JSCUTILS_OS_WINDOWS)
-		Logger::Logger(OutputType outputType, const wchar_t *szFilePath, CallbackFunc_t cbfunc, void *cbuserptr)
-		{
-			m_outtype = outputType;
-			m_fp = NULL;
-			m_cbfunc = NULL;
-			m_cbuserptr = NULL;
-			m_lasterrno = 0;
+	Logger::Logger(OutputType outputType, const wchar_t *szFilePath, CallbackFunc_t cbfunc, void *cbuserptr)
+	{
+		init(outputType, szFilePath, cbfunc, cbuserptr);
+	}
 
-			switch(m_outtype)
+	int Logger::init(OutputType outputType, const wchar_t *szFilePath, CallbackFunc_t cbfunc, void *cbuserptr)
+	{
+		int retval = 1;
+		close();
+		m_lasterrno = 0;
+
+		switch (outputType)
+		{
+		case TYPE_STDOUT:
+			m_fp = stdout;
+			break;
+		case TYPE_STDERR:
+			m_fp = stderr;
+			break;
+		case TYPE_FILE: {
+#ifdef JSCUTILS_OS_WINDOWS
+			HANDLE hFile = ::CreateFileW(szFilePath, FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+			int fd;
+
+			if ((hFile == NULL) || (hFile == INVALID_HANDLE_VALUE))
 			{
-			case TYPE_STDOUT:
-				m_fp = stdout;
-				break;
-			case TYPE_STDERR:
-				m_fp = stderr;
-				break;
-			case TYPE_FILE: {
-#ifdef _JSCUTILS_MSVC_CRT_SECURE
-				errno_t eno;
-				eno = _wfopen_s(&m_fp, szFilePath, L"a+");
-				m_lasterrno = (int)eno;
-#else
-				m_fp = wfopen(szFilePath, L"a+");
-				if(m_fp == NULL)
-					m_lasterrno = errno;
-#endif
-				}
-				break;
-			case TYPE_CALLBACK:
-				m_cbfunc = cbfunc;
-				m_cbuserptr = cbuserptr;
+				DWORD dwErr = ::GetLastError();
+				m_lasterrno = dwErr;
+				retval = -((int)dwErr);
 				break;
 			}
-		}
+			fd = ::_open_osfhandle((intptr_t)hFile, _O_RDWR); // _O_APPEND
+			if (fd < 0)
+			{
+				DWORD dwErr = ::GetLastError();
+				m_lasterrno = dwErr;
+				retval = -((int)dwErr);
+				break;
+			}
+			m_fp = _fdopen(fd, "a");
+			if (m_fp == NULL)
+			{
+				DWORD dwErr = ::GetLastError();
+				m_lasterrno = dwErr;
+				retval = -((int)dwErr);
+				_close(fd);
+				break;
+			}
+#else
+			m_fp = wfopen(szFilePath, L"a+");
+			if (m_fp == NULL)
+				m_lasterrno = errno;
 #endif
+		}
+		break;
+		case TYPE_CALLBACK:
+			m_cbfunc = cbfunc;
+			m_cbuserptr = cbuserptr;
+			break;
+		}
+
+		if (retval == 1)
+			m_outtype = outputType;
+
+		return retval;
+	}
+#endif
+
+	Logger::Logger(Logger *pParent, const std::string& strPrefixName)
+	{
+		init(pParent, strPrefixName);
+	}
+	Logger::Logger(const JsCPPUtils::SmartPointer<Logger> &spParent, const std::string& strPrefixName)
+	{
+		init(spParent, strPrefixName);
+	}
+
+	int Logger::init(Logger *pParent, const std::string& strPrefixName)
+	{
+		close();
+		m_spParent = NULL;
+		m_pParent = pParent;
+		m_strPrefixName = strPrefixName;
+		return 1;
+	}
+	int Logger::init(const JsCPPUtils::SmartPointer<Logger> &spParent, const std::string& strPrefixName)
+	{
+		close();
+		m_spParent = spParent;
+		m_pParent = spParent.getPtr();
+		m_strPrefixName = strPrefixName;
+		return 1;
+	}
 
 
 	Logger::~Logger()
 	{
-		switch(m_outtype)
-		{
-		case TYPE_FILE:
-			if(m_fp != NULL)
-			{
-				fclose(m_fp);
-				m_fp = NULL;
-			}
-		}
+		close();
 	}
 	
 	void Logger::setParent(Logger *pParent)
 	{
+		m_spParent = NULL;
 		m_pParent = pParent;
+	}
+	void Logger::setParent(const JsCPPUtils::SmartPointer<Logger> &spParent)
+	{
+		m_spParent = spParent;
+		m_pParent = spParent.getPtr();
 	}
 	
 	void Logger::_child_puts(LogType logtype, const std::string& strPrefixName, const char* szLog)
@@ -224,11 +333,19 @@ namespace JsCPPUtils
 					if(pbuf2 == NULL)
 						break;
 #endif
-	#ifdef _JSCUTILS_MSVC_CRT_SECURE
+#ifdef JSCUTILS_OS_WINDOWS
+#ifdef _JSCUTILS_MSVC_CRT_SECURE
+					sprintf_s(pbuf2, buf2size, "[%s] %s %02d %02d:%02d:%02d %d] %s\r\n", strlogtype, strmonths[timeinfo.tm_mon], timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec, timeinfo.tm_year + 1900, pbuf1);
+#else
+					sprintf(pbuf2, "[%s] %s %02d %02d:%02d:%02d %d] %s\r\n", strlogtype, strmonths[timeinfo.tm_mon], timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec, timeinfo.tm_year + 1900, pbuf1);
+#endif
+#else
+#ifdef _JSCUTILS_MSVC_CRT_SECURE
 					sprintf_s(pbuf2, buf2size, "[%s] %s %02d %02d:%02d:%02d %d] %s\n", strlogtype, strmonths[timeinfo.tm_mon], timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec, timeinfo.tm_year + 1900, pbuf1);
-	#else
+#else
 					sprintf(pbuf2, "[%s] %s %02d %02d:%02d:%02d %d] %s\n", strlogtype, strmonths[timeinfo.tm_mon], timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec, timeinfo.tm_year + 1900, pbuf1);
-	#endif
+#endif
+#endif
 					stroutput = pbuf2;
 					break;
 				case TYPE_SYSLOG:

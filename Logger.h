@@ -20,6 +20,7 @@
 
 #include "Common.h"
 #include "Lockable.h"
+#include "SmartPointer.h"
 
 #define JSLOGGER_USE_STACK
 
@@ -52,6 +53,7 @@ namespace JsCPPUtils
 
 	private:
 		Logger *m_pParent;
+		JsCPPUtils::SmartPointer<Logger> m_spParent;
 		std::string m_strPrefixName;
 
 		FILE *m_fp;
@@ -65,13 +67,24 @@ namespace JsCPPUtils
 		void _child_puts(LogType logtype, const std::string& strPrefixName, const char* szLog);
 		
 	public:
-		Logger(OutputType outputType, const char *szFilePath, CallbackFunc_t cbfunc, void *cbuserptr);
+		Logger();
+		int init(OutputType outputType, const char *szFilePath, CallbackFunc_t cbfunc = NULL, void *cbuserptr = NULL);
+		int init(Logger *pParent, const std::string& strPrefixName);
+		int init(const JsCPPUtils::SmartPointer<Logger> &spParent, const std::string& strPrefixName);
+		Logger(OutputType outputType, const char *szFilePath, CallbackFunc_t cbfunc = NULL, void *cbuserptr = NULL);
 		Logger(Logger *pParent, const std::string& strPrefixName);
+		Logger(const JsCPPUtils::SmartPointer<Logger> &spParent, const std::string& strPrefixName);
 #if defined(JSCUTILS_OS_WINDOWS)
-		Logger(OutputType outputType, const wchar_t *szFilePath, CallbackFunc_t cbfunc, void *cbuserptr);
+		int init(OutputType outputType, const wchar_t *szFilePath, CallbackFunc_t cbfunc = NULL, void *cbuserptr = NULL);
+		Logger(OutputType outputType, const wchar_t *szFilePath, CallbackFunc_t cbfunc = NULL, void *cbuserptr = NULL);
 #endif
+		void close();
 		~Logger();
+		int getErrno() {
+			return m_lasterrno;
+		};
 		void setParent(Logger *pParent);
+		void setParent(const JsCPPUtils::SmartPointer<Logger> &spParent);
 		void printf(LogType logtype, const char* format, ...);
 	};
 
