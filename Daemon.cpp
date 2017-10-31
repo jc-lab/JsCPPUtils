@@ -90,6 +90,7 @@ namespace JsCPPUtils {
 		memset(&m_ServiceStatus, 0, sizeof(m_ServiceStatus));
 		m_StatusHandle = NULL;
 		m_fnServiceCtrlHandler = NULL;
+		m_dwControlsAccepted = 0;
 #endif
 
 		m_isDaemon = false;
@@ -474,8 +475,6 @@ namespace JsCPPUtils {
 	}
 
 #elif defined(JSCUTILS_OS_WINDOWS)
-
-
 	void Daemon::cbLoggerToDebugOutput(void *userptr, const char *stroutput)
 	{
 		::OutputDebugStringA(stroutput);
@@ -667,6 +666,10 @@ namespace JsCPPUtils {
 		return 0;
 	}
 
+	void Daemon::setControlsAccepted(DWORD dwControlsAccepted)
+	{
+		m_dwControlsAccepted = dwControlsAccepted;
+	}
 	
 	void Daemon::setServiceCtrlHandler(fnServiceCtrlHandler_t fnHandler)
 	{
@@ -707,7 +710,7 @@ namespace JsCPPUtils {
 			OutputDebugString(_T("My Sample Service: ServiceMain: RegisterServiceCtrlHandler returned error"));
 			goto EXIT;
 		}
-
+        
 		// Tell the service controller we are starting
 		memset(&m_instance->m_ServiceStatus, 0, sizeof(m_instance->m_ServiceStatus));
 		m_instance->m_ServiceStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
@@ -746,7 +749,7 @@ namespace JsCPPUtils {
 		*/
 
 		// Tell the service controller we are started
-		m_instance->m_ServiceStatus.dwControlsAccepted = SERVICE_ACCEPT_STOP;
+		m_instance->m_ServiceStatus.dwControlsAccepted = m_instance->m_dwControlsAccepted | SERVICE_ACCEPT_STOP;
 		m_instance->m_ServiceStatus.dwCurrentState = SERVICE_RUNNING;
 		m_instance->m_ServiceStatus.dwWin32ExitCode = 0;
 		m_instance->m_ServiceStatus.dwCheckPoint = 0;
@@ -802,10 +805,6 @@ namespace JsCPPUtils {
 			if (pDaemon->m_ServiceStatus.dwCurrentState != SERVICE_RUNNING)
 			   break;
 
-			/* 
-			 * Perform tasks neccesary to stop the service here 
-			 */
-        
 			pDaemon->m_ServiceStatus.dwControlsAccepted = 0;
 			pDaemon->m_ServiceStatus.dwCurrentState = SERVICE_STOP_PENDING;
 			pDaemon->m_ServiceStatus.dwWin32ExitCode = 0;
@@ -863,6 +862,11 @@ namespace JsCPPUtils {
 	int Daemon::getRunStatus()
 	{
 		return m_runstatus.get();
+	}
+
+	void Daemon::reqStop()
+	{
+		m_runstatus.getifset(2, 1);
 	}
 		
 	void Daemon::setNoSetUGID(bool bvalue)

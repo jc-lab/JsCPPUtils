@@ -113,6 +113,8 @@ namespace JsCPPUtils
 		Daemon(void *cbparam, daemonstartup_t fpdaemonstartup, daemonmain_t fpdaemonmain, const std::basic_string<_JSCPPUTILS_DAEMON_DEFCHARTYPE> &strServiceName = _JSCPPUTILS_DAEMON_DEFCHARTYPE_T(""));
 		
 #if defined(JSCUTILS_OS_WINDOWS)
+		DWORD m_dwControlsAccepted;
+
 		static VOID WINAPI _ServiceMain(DWORD argc, LPTSTR *argv);
 		static DWORD WINAPI _ServiceCtrlHandlerEx(DWORD dwControl, DWORD dwEventType, LPVOID lpEventData, LPVOID lpContext);
 		static DWORD WINAPI _ServiceWorkerThread(LPVOID lpParam);
@@ -135,7 +137,8 @@ namespace JsCPPUtils
 		bool isDaemon();
 
 		int getRunStatus();
-		
+		void reqStop();
+
 		void printhelp();
 		
 		void setNoSetUGID(bool bvalue = true);
@@ -163,6 +166,7 @@ namespace JsCPPUtils
 		static void sysDebugPrintf(const char *format, ...);
 		static void sysDebugPrintf(const wchar_t *format, ...);
 		static void cbLoggerToDebugOutput(void *userptr, const char *stroutput);
+		void setControlsAccepted(DWORD dwControlsAccepted);
 		void setServiceCtrlHandler(fnServiceCtrlHandler_t fnHandler);
 #endif
 	};
