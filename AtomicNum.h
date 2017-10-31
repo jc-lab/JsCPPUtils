@@ -1,5 +1,6 @@
 /**
  * @file	AtomicNum.h
+ * @author	Jichan (development@jc-lab.net / http://ablog.jc-lab.net/category/JsCPPUtils )
  * @class	AtomicNum
  * @brief	Thread-Safe한 숫자형을 구현한 클래스
  * @copyright Copyright (C) 2016 jichan.\n
