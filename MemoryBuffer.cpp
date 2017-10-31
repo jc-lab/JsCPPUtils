@@ -43,7 +43,31 @@ namespace JsCPPUtils
 		m_bufpos = 0;
 	}
 
-	bool MemoryBuffer::increaseBuffer(int increaseSize)
+	
+	bool MemoryBuffer::setCurrentPos(size_t currentPos)
+	{
+		if(currentPos > m_bufsize)
+		{
+			char *pnewptr;
+			size_t newsize = currentPos;
+			size_t realIncreaseSize;
+			if(newsize % m_blocksize)
+				newsize += m_blocksize - (newsize % m_blocksize);
+			realIncreaseSize = currentPos - m_bufpos;
+			pnewptr = (char*)realloc(m_pbuf, newsize);
+			if(pnewptr == NULL)
+				return false; // Memory allocate failed!!
+			m_bufsize = newsize;
+			memset(&pnewptr[m_bufpos], 0, realIncreaseSize);
+			m_pbuf = pnewptr;
+		}
+
+		m_bufpos = currentPos;
+
+		return true;
+	}
+
+	bool MemoryBuffer::increaseBuffer(size_t increaseSize)
 	{
 		size_t needsize = m_bufpos + increaseSize;
 		if(needsize > m_bufsize)
@@ -64,7 +88,7 @@ namespace JsCPPUtils
 		return true;
 	}
 	
-	bool MemoryBuffer::increasePos(int increaseSize)
+	bool MemoryBuffer::increasePos(size_t increaseSize)
 	{
 		size_t needsize = m_bufpos + increaseSize;
 		if(needsize > m_bufsize)
