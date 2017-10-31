@@ -49,7 +49,8 @@ namespace JsCPPUtils
 			LOGTYPE_DEBUG = 7
 		};
 
-		typedef void (*CallbackFunc_t)(void *userptr, const char *stroutput);
+		typedef void(*CallbackFuncA_t)(void *userptr, const char *stroutput);
+		typedef void(*CallbackFuncW_t)(void *userptr, const wchar_t *stroutput);
 
 	private:
 		Logger *m_pParent;
@@ -59,24 +60,28 @@ namespace JsCPPUtils
 		FILE *m_fp;
 		OutputType m_outtype;
 
-		CallbackFunc_t m_cbfunc;
+		CallbackFuncA_t m_cbfuncA;
+		CallbackFuncW_t m_cbfuncW;
 		void *m_cbuserptr;
 
 		int m_lasterrno;
 
+		void _clearInstance();
+
 		void _child_puts(LogType logtype, const std::string& strPrefixName, const char* szLog);
-		
+		void _child_puts(LogType logtype, const std::string& strPrefixName, const wchar_t* szLog);
+
 	public:
 		Logger();
-		int init(OutputType outputType, const char *szFilePath, CallbackFunc_t cbfunc = NULL, void *cbuserptr = NULL);
+		int init(OutputType outputType, const char *szFilePath, CallbackFuncA_t cbfuncA = NULL, CallbackFuncW_t cbfuncW = NULL, void *cbuserptr = NULL);
 		int init(Logger *pParent, const std::string& strPrefixName);
 		int init(const JsCPPUtils::SmartPointer<Logger> &spParent, const std::string& strPrefixName);
-		Logger(OutputType outputType, const char *szFilePath, CallbackFunc_t cbfunc = NULL, void *cbuserptr = NULL);
+		Logger(OutputType outputType, const char *szFilePath, CallbackFuncA_t cbfuncA = NULL, CallbackFuncW_t cbfuncW = NULL, void *cbuserptr = NULL);
 		Logger(Logger *pParent, const std::string& strPrefixName);
 		Logger(const JsCPPUtils::SmartPointer<Logger> &spParent, const std::string& strPrefixName);
 #if defined(JSCUTILS_OS_WINDOWS)
-		int init(OutputType outputType, const wchar_t *szFilePath, CallbackFunc_t cbfunc = NULL, void *cbuserptr = NULL);
-		Logger(OutputType outputType, const wchar_t *szFilePath, CallbackFunc_t cbfunc = NULL, void *cbuserptr = NULL);
+		int init(OutputType outputType, const wchar_t *szFilePath, CallbackFuncA_t cbfuncA = NULL, CallbackFuncW_t cbfuncW = NULL, void *cbuserptr = NULL);
+		Logger(OutputType outputType, const wchar_t *szFilePath, CallbackFuncA_t cbfuncA = NULL, CallbackFuncW_t cbfuncW = NULL, void *cbuserptr = NULL);
 #endif
 		void close();
 		~Logger();
@@ -86,6 +91,11 @@ namespace JsCPPUtils
 		void setParent(Logger *pParent);
 		void setParent(const JsCPPUtils::SmartPointer<Logger> &spParent);
 		void printf(LogType logtype, const char* format, ...);
+		void puts(LogType logtype, const char* text);
+#if defined(JSCUTILS_OS_WINDOWS)
+		void printf(LogType logtype, const wchar_t* format, ...);
+		void puts(LogType logtype, const wchar_t* text);
+#endif
 	};
 
 }
