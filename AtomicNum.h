@@ -21,8 +21,6 @@
 
 namespace JsCPPUtils
 {
-#if 1
-
 	template <typename T>
 	class basic_AtomicNumAbstract
 	{
@@ -33,8 +31,12 @@ namespace JsCPPUtils
 		virtual T get() const = 0;
 		virtual T getset(T value) = 0;
 		virtual T getifset(T value, T ifvalue) = 0;
+		virtual T incget() = 0;
+		virtual T decget() = 0;
 		virtual void operator+=(T y) = 0;
 		virtual void operator-=(T y) = 0;
+		virtual void operator++() = 0;
+		virtual void operator--() = 0;
 		virtual void operator&=(T y) = 0;
 		virtual void operator|=(T y) = 0;
 		virtual bool operator==(T y) const = 0;
@@ -79,12 +81,12 @@ namespace JsCPPUtils
 
 		operator T() const
 		{
-			return (T)::InterlockedExchangeAdd64((volatile LONGLONG *)&m_value, 0);
+			return (T)m_value; // ::InterlockedExchangeAdd64((volatile LONGLONG *)&m_value, 0);
 		}
 
 		T get() const
 		{
-			return (T)::InterlockedExchangeAdd64((volatile LONGLONG *)&m_value, 0);
+			return (T)m_value; // ::InterlockedExchangeAdd64((volatile LONGLONG *)&m_value, 0);
 		}
 
 		T getset(T value)
@@ -97,6 +99,21 @@ namespace JsCPPUtils
 			return (T)::InterlockedCompareExchange64(&m_value, (LONGLONG)value, (LONGLONG)ifvalue);
 		}
 
+		T getadd(T y)
+		{
+			return (T)::InterlockedExchangeAdd64(&m_value, (LONGLONG)y);
+		}
+
+		T incget()
+		{
+			return (T)::InterlockedIncrement64(&m_value);
+		}
+
+		T decget()
+		{
+			return (T)::InterlockedDecrement64(&m_value);
+		}
+
 		void operator+=(T y)
 		{
 			::InterlockedExchangeAdd64(&m_value, (LONGLONG)y);
@@ -105,6 +122,16 @@ namespace JsCPPUtils
 		void operator-=(T y)
 		{
 			::InterlockedExchangeAdd64(&m_value, -((LONGLONG)y));
+		}
+
+		void operator++()
+		{
+			::InterlockedIncrement64(&m_value);
+		}
+
+		void operator--()
+		{
+			::InterlockedDecrement64(&m_value);
 		}
 
 		void operator&=(T y)
@@ -119,40 +146,40 @@ namespace JsCPPUtils
 
 		bool operator==(T y) const
 		{
-			return (((T)InterlockedExchange64((volatile LONGLONG *)&m_value, 0)) == y);
+			return (((T)m_value) == y);
 		}
 
 		bool operator!=(T y) const
 		{
-			return (((T)InterlockedExchange64((volatile LONGLONG *)&m_value, 0)) != y);
+			return (((T)m_value) != y);
 		}
 
 		bool operator>(T y) const
 		{
-			T tval = (T)InterlockedExchange64((volatile LONGLONG *)&m_value, 0);
+			T tval = ((T)m_value);
 			return (tval > y);
 		}
 
 		bool operator<(T y) const
 		{
-			T tval = (T)InterlockedExchange64((volatile LONGLONG *)&m_value, 0);
+			T tval = ((T)m_value);
 			return (tval < y);
 		}
 
 		bool operator>=(T y) const
 		{
-			T tval = (T)InterlockedExchange64((volatile LONGLONG *)&m_value, 0);
+			T tval = ((T)m_value);
 			return (tval >= y);
 		}
 
 		bool operator<=(T y) const
 		{
-			T tval = (T)InterlockedExchange64((volatile LONGLONG *)&m_value, 0);
+			T tval = ((T)m_value);
 			return (tval <= y);
 		}
 	};
-
-#else
+#endif
+//#else
 	template <typename T = LONG>
 	class basic_AtomicNumSYS32 : public basic_AtomicNumAbstract<T>
 	{
@@ -186,12 +213,12 @@ namespace JsCPPUtils
 
 		operator T() const
 		{
-			return (T)::InterlockedExchangeAdd((volatile LONG *)&m_value, 0);
+			return (T)m_value; // ::InterlockedExchangeAdd((volatile LONG *)&m_value, 0);
 		}
 
 		T get() const
 		{
-			return (T)::InterlockedExchangeAdd((volatile LONG *)&m_value, 0);
+			return (T)m_value; // ::InterlockedExchangeAdd((volatile LONG *)&m_value, 0);
 		}
 
 		T getset(T value)
@@ -204,14 +231,34 @@ namespace JsCPPUtils
 			return (T)::InterlockedCompareExchange(&m_value, (LONG)value, (LONG)ifvalue);
 		}
 
+		T incget()
+		{
+			return (T)::InterlockedIncrement(&m_value);
+		}
+
+		T decget()
+		{
+			return (T)::InterlockedDecrement(&m_value);
+		}
+
 		void operator+=(T y)
 		{
-			::InterlockedExchangeAdd(&m_value, ((LONG)y));
+			::InterlockedExchangeAdd(&m_value, (LONG)y);
 		}
 
 		void operator-=(T y)
 		{
 			::InterlockedExchangeAdd(&m_value, -((LONG)y));
+		}
+
+		void operator++()
+		{
+			::InterlockedIncrement(&m_value);
+		}
+
+		void operator--()
+		{
+			::InterlockedDecrement(&m_value);
 		}
 
 		void operator&=(T y)
@@ -226,46 +273,48 @@ namespace JsCPPUtils
 
 		bool operator==(T y) const
 		{
-			return (((T)InterlockedExchangeAdd((volatile LONG *)&m_value, 0)) == (y));
+			T tval = ((T)m_value);
+			return (tval == y);
 		}
 
 		bool operator!=(T y) const
 		{
-			return (((T)InterlockedExchangeAdd((volatile LONG *)&m_value, 0)) != (y));
+			T tval = ((T)m_value);
+			return (tval != y);
 		}
 
 		bool operator>(T y) const
 		{
-			T tval = (T)InterlockedExchangeAdd((volatile LONG *)&m_value, 0);
+			T tval = ((T)m_value);
 			return (tval > y);
 		}
 
 		bool operator<(T y) const
 		{
-			T tval = (T)InterlockedExchangeAdd((volatile LONG *)&m_value, 0);
+			T tval = ((T)m_value);
 			return (tval < y);
 		}
 
 		bool operator>=(T y) const
 		{
-			T tval = (T)InterlockedExchangeAdd((volatile LONG *)&m_value, 0);
+			T tval = ((T)m_value);
 			return (tval >= y);
 		}
 
 		bool operator<=(T y) const
 		{
-			T tval = (T)InterlockedExchangeAdd((volatile LONG *)&m_value, 0);
+			T tval = ((T)m_value);
 			return (tval <= y);
 		}
 	};
 
-#endif
+//#endif
 
 	template <typename T>
 	class basic_AtomicNumMutex : public basic_AtomicNumAbstract<T>, private JsCPPUtils::Lockable
 	{
 	private:
-		T m_value;
+		volatile T m_value;
 
 	public:
 		basic_AtomicNumMutex() : 
@@ -335,6 +384,24 @@ namespace JsCPPUtils
 			return old;
 		}
 
+		T incget()
+		{
+			T value;
+			lock();
+			value = ++m_value;
+			unlock();
+			return value;
+		}
+
+		T decget()
+		{
+			T value;
+			lock();
+			value = --m_value;
+			unlock();
+			return value;
+		}
+
 		void operator+=(T y)
 		{
 			lock();
@@ -346,6 +413,20 @@ namespace JsCPPUtils
 		{
 			lock();
 			m_value -= y;
+			unlock();
+		}
+
+		void operator++()
+		{
+			lock();
+			m_value++;
+			unlock();
+		}
+
+		void operator--()
+		{
+			lock();
+			m_value--;
 			unlock();
 		}
 
@@ -484,12 +565,30 @@ namespace JsCPPUtils
 
 		T getset(T value)
 		{
-			return m_pimpl->getset(value);
+			T resvalue;
+			resvalue = m_pimpl->getset(value);
+			return resvalue;
 		}
 
 		T getifset(T value, T ifvalue)
 		{
-			return m_pimpl->getifset(value, ifvalue);
+			T resvalue;
+			resvalue = m_pimpl->getifset(value, ifvalue);
+			return resvalue;
+		}
+
+		T incget()
+		{
+			T resvalue;
+			resvalue = m_pimpl->incget();
+			return resvalue;
+		}
+
+		T decget()
+		{
+			T resvalue;
+			resvalue = m_pimpl->decget();
+			return resvalue;
 		}
 
 		void operator+=(T y)
@@ -500,6 +599,16 @@ namespace JsCPPUtils
 		void operator-=(T y)
 		{
 			m_pimpl->operator-=(y);
+		}
+
+		void operator++()
+		{
+			m_pimpl->operator++(y);
+		}
+
+		void operator--()
+		{
+			m_pimpl->operator--(y);
 		}
 
 		void operator&=(T y)
@@ -543,264 +652,6 @@ namespace JsCPPUtils
 		}
 	};
 
-
-#else
-	template <typename T, bool _usebymanythread = false>
-	class AtomicNum : public LockableEx
-	{
-	private:
-		volatile T m_value;
-
-	public:
-		AtomicNum() : 
-			LockableEx(),
-			m_value(0)
-		{
-		}
-
-		AtomicNum(int initialvalue) : 
-			LockableEx(),
-			m_value(initialvalue)
-		{
-		}
-	
-		~AtomicNum()
-		{
-		}
-
-		void set(T y)
-		{
-			LockableEx::lock();
-			m_value = y;
-			LockableEx::unlock(_usebymanythread);
-		}
-		
-		void operator=(T y)
-		{
-			LockableEx::lock();
-			m_value = y;
-			LockableEx::unlock(_usebymanythread);
-		}
-
-		operator T()
-		{
-			T value;
-			LockableEx::lock();
-			value = m_value;
-			LockableEx::unlock(_usebymanythread);
-			return value;
-		}
-
-		T get()
-		{
-			T value;
-			LockableEx::lock();
-			value = m_value;
-			LockableEx::unlock(_usebymanythread);
-			return value;
-		}
-
-		T getset(T value)
-		{
-			T old;
-			LockableEx::lock();
-			old = m_value;
-			m_value = value;
-			LockableEx::unlock(_usebymanythread);
-			return old;
-		}
-
-		T getifset(T value, T ifvalue)
-		{
-			T old;
-			LockableEx::lock();
-			old = m_value;
-			if(old == ifvalue)
-				m_value = value;
-			LockableEx::unlock(_usebymanythread);
-			return old;
-		}
-
-		T getifnset(T value, T ifnvalue)
-		{
-			T old;
-			LockableEx::lock();
-			old = m_value;
-			if(old != ifnvalue)
-				m_value = value;
-			LockableEx::unlock(_usebymanythread);
-			return old;
-		}
-		
-		/*
-#if defined(_MSC_VER)
-		AtomicNum& operator--()
-		{
-			T value;
-			LockableEx::lock();
-			m_value -= 1;
-			value = m_value;
-			LockableEx::unlock(_usebymanythread);
-			return *this;
-		}
-
-		T operator--(int)
-		{
-			T value;
-			LockableEx::lock();
-			value = m_value;
-			m_value -= 1;
-			LockableEx::unlock(_usebymanythread);
-			return value;
-		}
-
-		AtomicNum& operator++()
-		{
-			T value;
-			LockableEx::lock();
-			m_value += 1;
-			value = m_value;
-			LockableEx::unlock(_usebymanythread);
-			return *this;
-		}
-
-		T operator++(int)
-		{
-			T value;
-			LockableEx::lock();
-			value = m_value;
-			m_value += 1;
-			LockableEx::unlock(_usebymanythread);
-			return value;
-		}
-#endif
-		*/
-		
-		void operator+=(T y)
-		{
-			LockableEx::lock();
-			m_value += y;
-			LockableEx::unlock(_usebymanythread);
-		}
-
-		void operator-=(T y)
-		{
-			LockableEx::lock();
-			m_value -= y;
-			LockableEx::unlock(_usebymanythread);
-		}
-
-		void operator*=(T y)
-		{
-			LockableEx::lock();
-			m_value *= y;
-			LockableEx::unlock(_usebymanythread);
-		}
-
-		void operator/=(T y)
-		{
-			LockableEx::lock();
-			m_value /= y;
-			LockableEx::unlock(_usebymanythread);
-		}
-
-		void operator%=(T y)
-		{
-			LockableEx::lock();
-			m_value %= y;
-			LockableEx::unlock(_usebymanythread);
-		}
-
-		void operator<<=(T y)
-		{
-			LockableEx::lock();
-			m_value <<= y;
-			LockableEx::unlock(_usebymanythread);
-		}
-
-		void operator>>=(T y)
-		{
-			LockableEx::lock();
-			m_value >>= y;
-			LockableEx::unlock(_usebymanythread);
-		}
-
-		void operator^=(T y)
-		{
-			LockableEx::lock();
-			m_value ^= y;
-			LockableEx::unlock(_usebymanythread);
-		}
-
-		void operator&=(T y)
-		{
-			LockableEx::lock();
-			m_value &= y;
-			LockableEx::unlock(_usebymanythread);
-		}
-
-		void operator|=(T y)
-		{
-			LockableEx::lock();
-			m_value |= y;
-			LockableEx::unlock(_usebymanythread);
-		}
-
-		bool operator==(T y)
-		{
-			bool retval;
-			LockableEx::lock();
-			retval = m_value == y;
-			LockableEx::unlock(_usebymanythread);
-			return retval;
-		}
-
-		bool operator!=(T y)
-		{
-			bool retval;
-			LockableEx::lock();
-			retval = m_value != y;
-			LockableEx::unlock(_usebymanythread);
-			return retval;
-		}
-
-		bool operator>(T y)
-		{
-			bool retval;
-			LockableEx::lock();
-			retval = m_value > y;
-			LockableEx::unlock(_usebymanythread);
-			return retval;
-		}
-
-		bool operator<(T y)
-		{
-			bool retval;
-			LockableEx::lock();
-			retval = m_value < y;
-			LockableEx::unlock(_usebymanythread);
-			return retval;
-		}
-
-		bool operator>=(T y)
-		{
-			bool retval;
-			LockableEx::lock();
-			retval = m_value >= y;
-			LockableEx::unlock(_usebymanythread);
-			return retval;
-		}
-
-		bool operator<=(T y)
-		{
-			bool retval;
-			LockableEx::lock();
-			retval = m_value <= y;
-			LockableEx::unlock(_usebymanythread);
-			return retval;
-		}
-	};
-#endif
 
 }
 
