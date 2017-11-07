@@ -234,7 +234,7 @@ namespace JsCPPUtils
 						_findnext();
 					return m_pmap->m_blocks[m_curidx - 1].value;
 				}
-
+				
 				TVALUE *getValuePtr()
 				{
 					return &m_pmap->m_blocks[m_curidx - 1].value;
@@ -632,6 +632,16 @@ namespace JsCPPUtils
 				return ref_value;
 			}
 			
+			bool isContain(const TKEY &key)
+			{
+				int hash = _hash(key);
+				
+				blockindex_t *pbucket = &m_buckets[hash];
+				block_t *pblock = _findblock(*pbucket, key, NULL);
+				
+				return (pblock != NULL);
+			}
+			
 			void erase(const TKEY &key)
 			{
 				int i;
@@ -700,7 +710,7 @@ namespace JsCPPUtils
 				iter.m_itertype = 1;
 				iter.m_pmap = this;
 				iter.m_nextidx = nextbi;
-				iter.m_remaincount = (pblock != NULL) ? 1 : 0;
+				iter.m_remaincount = (pblock != NULL) ? 1 : 0; 
 				
 				return iter;
 			}
