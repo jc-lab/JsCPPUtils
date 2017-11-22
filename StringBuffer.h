@@ -34,6 +34,7 @@ namespace JsCPPUtils
 		size_t m_bufpos;
 		CHARTYPE *m_pbuf;
 		int m_blocksize;
+		CHARTYPE m_tempbuffer[32];
 
 		bool putData(const CHARTYPE *data, size_t size)
 		{
@@ -44,7 +45,14 @@ namespace JsCPPUtils
 				size_t newsize = needsize;
 				if(newsize % m_blocksize)
 					newsize += m_blocksize - (newsize % m_blocksize);
-				pnewptr = (CHARTYPE*)realloc(m_pbuf, newsize * sizeof(CHARTYPE));
+				if (m_pbuf == m_tempbuffer)
+				{
+					pnewptr = (CHARTYPE*)malloc(newsize * sizeof(CHARTYPE));
+					if (pnewptr)
+						memcpy(pnewptr, m_tempbuffer, sizeof(m_tempbuffer));
+				}
+				else
+					pnewptr = (CHARTYPE*)realloc(m_pbuf, newsize * sizeof(CHARTYPE));
 				if(pnewptr == NULL)
 				{
 					return false;
@@ -53,88 +61,88 @@ namespace JsCPPUtils
 				m_pbuf = pnewptr;
 			}
 
-			memcpy(&m_pbuf[m_bufpos], data, size * sizeof(CHARTYPE));
+			memcpy(&m_pbuf[m_bufpos], data, (size + 1) * sizeof(CHARTYPE));
 			m_bufpos += size;
 			m_pbuf[m_bufpos] = 0;
 
 			return true;
 		}
 
+		void init()
+		{
+			m_bufsize = sizeof(m_tempbuffer) / sizeof(CHARTYPE);
+			m_bufpos = 0;
+			m_pbuf = m_tempbuffer;
+			memset(m_tempbuffer, 0, sizeof(m_tempbuffer));
+		}
+
 	public:
 		StringBuffer() : 
-		m_blocksize(128),
-			m_bufsize(0),
-			m_bufpos(0),
-			m_pbuf(NULL)
+		m_blocksize(128)
 		{
+			init();
 		}
 
 		StringBuffer(bool bconfig, int blocksize) : 
-		m_blocksize(128),
-			m_bufsize(0),
-			m_bufpos(0),
-			m_pbuf(NULL)
+		m_blocksize(128)
 		{
 			if(bconfig)
 				m_blocksize = blocksize;
+			init();
 		}
 
 		StringBuffer(const CHARTYPE *szText) : 
-		m_blocksize(128),
-			m_bufsize(0),
-			m_bufpos(0),
-			m_pbuf(NULL)
+		m_blocksize(128)
 		{
+			init();
 			append(szText);
 		}
 
 		StringBuffer(const CHARTYPE *szText, int len): 
-		m_blocksize(128),
-			m_bufsize(0),
-			m_bufpos(0),
-			m_pbuf(NULL)
+		m_blocksize(128)
 		{
+			init();
 			append(szText, len);
 		}
 
 		StringBuffer(const std::basic_string<CHARTYPE>& strText): 
-		m_blocksize(128),
-			m_bufsize(0),
-			m_bufpos(0),
-			m_pbuf(NULL)
+		m_blocksize(128)
 		{
+			init();
 			append(strText.c_str(), strText.length());
 		}
 
 		StringBuffer(const StringBuffer& sbText): 
-		m_blocksize(sbText.m_blocksize),
-			m_bufsize(0),
-			m_bufpos(0),
-			m_pbuf(NULL)
+		m_blocksize(sbText.m_blocksize)
 		{
+			init();
 			append(sbText);
 		}
 
 #if __cplusplus >= 201103L
 		// move constructor (C++11)
 		StringBuffer(StringBuffer&& sbText): 
-		m_blocksize(sbText.m_blocksize),
-			m_bufsize(0),
-			m_bufpos(0),
-			m_pbuf(NULL)
+		m_blocksize(sbText.m_blocksize)
 		{
+			init();
 			m_bufsize = sbText.m_bufsize;
 			m_bufpos = sbText.m_bufpos;
-			m_pbuf = sbText.m_pbuf;
+			if (sbText.m_pbuf == sbText.m_tempbuffer)
+			{
+				m_pbuf = m_tempbuffer;
+				memcpy(m_tempbuffer, sbText.m_tempbuffer, sizeof(m_tempbuffer));
+			} else {
+				m_pbuf = sbText.m_pbuf;
+			}
 			sbText.m_bufsize = 0;
 			sbText.m_bufpos = 0;
-			sbText.m_pbuf = NULL;
+			sbText.m_pbuf = sbText.m_tempbuffer;
 		}
 #endif
 
 		~StringBuffer()
 		{
-			if(m_pbuf != NULL)
+			if((m_pbuf != NULL) && (m_pbuf != m_tempbuffer))
 			{
 				free(m_pbuf);
 				m_pbuf = NULL;
@@ -631,7 +639,14 @@ namespace JsCPPUtils
 				size_t newsize = needsize;
 				if(newsize % m_blocksize)
 					newsize += m_blocksize - (newsize % m_blocksize);
-				pnewptr = (CHARTYPE*)realloc(m_pbuf, newsize * sizeof(CHARTYPE));
+				if (m_pbuf == m_tempbuffer)
+				{
+					pnewptr = (CHARTYPE*)malloc(newsize * sizeof(CHARTYPE));
+					if (pnewptr)
+						memcpy(pnewptr, m_tempbuffer, sizeof(m_tempbuffer));
+				}
+				else
+					pnewptr = (CHARTYPE*)realloc(m_pbuf, newsize * sizeof(CHARTYPE));
 				if(pnewptr == NULL)
 				{
 					return false;
@@ -640,7 +655,7 @@ namespace JsCPPUtils
 				m_pbuf = pnewptr;
 			}
 
-			memset(&m_pbuf[m_bufpos], 0, sizeof(CHARTYPE) * increaseSize);
+			memset(&m_pbuf[m_bufpos], 0, sizeof(CHARTYPE) * (increaseSize + 1));
 
 			return true;
 		}
