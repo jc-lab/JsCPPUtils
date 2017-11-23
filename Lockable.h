@@ -30,7 +30,7 @@ namespace JsCPPUtils
 	{
 	private:
 #if defined(JSCUTILS_OS_WINDOWS)
-		HANDLE m_hMutex;
+		CRITICAL_SECTION m_cs;
 #elif defined(JSCUTILS_OS_LINUX)
 		pthread_mutex_t m_mutex;
 #endif

@@ -18,44 +18,25 @@
 namespace JsCPPUtils
 {
 #if defined(JSCUTILS_OS_WINDOWS)
-	Lockable::Lockable() : m_hMutex(NULL)
+	Lockable::Lockable()
 	{
-		DWORD dwErr = 0;
-		m_hMutex = ::CreateMutex(NULL, FALSE, NULL);
-		if (m_hMutex == INVALID_HANDLE_VALUE)
-		{
-			dwErr = GetLastError();
-			throw -((int)dwErr);
-		}
+		::InitializeCriticalSection(&m_cs);
 	}
 
 	Lockable::~Lockable()
 	{
-		CloseHandle(m_hMutex);
-		m_hMutex = INVALID_HANDLE_VALUE;
+		::DeleteCriticalSection(&m_cs);
 	}
 
 	int Lockable::lock() const
 	{
-		DWORD dwWait;
-		DWORD dwErr;
-		dwWait = WaitForSingleObject(m_hMutex, INFINITE);
-		if (dwWait != 0)
-		{
-			dwErr = GetLastError();
-			return -((int)dwErr);
-		}
+		::EnterCriticalSection((LPCRITICAL_SECTION)&m_cs);
 		return 1;
 	}
 
 	int Lockable::unlock() const
 	{
-		DWORD dwErr;
-		if (!ReleaseMutex(m_hMutex))
-		{
-			dwErr = GetLastError();
-			return -((int)dwErr);
-		}
+		::LeaveCriticalSection((LPCRITICAL_SECTION)&m_cs);
 		return 1;
 	}
 	
@@ -72,10 +53,19 @@ namespace JsCPPUtils
 	
 	int LockableRW::writelock() const
 	{
-		::InterlockedExchangeAdd((volatile LONG*)&m_syslock, LF_WRITE_FLAG);
-		while (m_syslock != LF_WRITE_FLAG)
-			::YieldProcessor();
-		return 1;
+		while (true)
+		{
+			while (m_syslock & LF_WRITE_MASK)
+				YieldProcessor();
+			if ((InterlockedExchangeAdd((volatile LONG*)&m_syslock, LF_WRITE_FLAG) & LF_WRITE_MASK) == 0)
+			{
+				while (m_syslock & LF_READ_MASK)
+					YieldProcessor();
+
+				return 1;
+			}
+			InterlockedExchangeAdd((volatile LONG*)&m_syslock, -LF_WRITE_FLAG);
+		}
 	}
 	
 	int LockableRW::writeunlock() const
