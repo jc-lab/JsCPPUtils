@@ -458,20 +458,23 @@ namespace JsCPPUtils
 							{
 								int newhash = _hash2(pblock->key, new_numofbuckets);
 								blockindex_t *pbucket = &new_buckets[newhash];
+								pblock->prev = 0;
 								pblock->next = 0;
 								if (*pbucket == 0)
 								{
 									*pbucket = i + 1;
-								}
-								else {
+								} else {
 									blockindex_t tmpblockidx = *pbucket;
-									block_t *tmppblock = NULL;
+									block_t *plastblock = NULL;
+									blockindex_t lastblockidx = 0;
 									while (tmpblockidx)
 									{
-										tmppblock = &m_blocks[tmpblockidx - 1];
-										tmpblockidx = tmppblock->next;
+										lastblockidx = tmpblockidx;
+										plastblock = &m_blocks[tmpblockidx - 1];
+										tmpblockidx = plastblock->next;
 									}
-									tmppblock->next = i + 1;
+									pblock->prev = lastblockidx;
+									plastblock->next = i + 1;
 								}
 							}
 						}
@@ -491,8 +494,7 @@ namespace JsCPPUtils
 					if (nresult != 1)
 					{
 						//printf("inc bucket failed\n");
-					}
-					else {
+					} else {
 						return true;
 					}
 				}
@@ -586,7 +588,11 @@ namespace JsCPPUtils
 				if (m_blockcount == m_blocksize)
 				{
 					int new_blocksize = m_blocksize + m_conf_incblocksize;
+#ifdef _JSCUTILS_USE_CUSTOM_ALLOCATOR
+					block_t *new_blocks = (block_t*)m_custom_realloc(m_blocks, sizeof(block_t)*new_blocksize);
+#else
 					block_t *new_blocks = (block_t*)realloc(m_blocks, sizeof(block_t)*new_blocksize);
+#endif
 					if (new_blocks == NULL)
 						throw std::bad_alloc();
 					
@@ -629,18 +635,21 @@ namespace JsCPPUtils
 					
 					// Cache is empty.
 					
-					tmppblock = m_blocks + (m_lastfoundfreeblockidx - 1);
-					for (bi = m_lastfoundfreeblockidx; (bi <= m_blocksize) && (cacheidx <= JsCPPUtils_HashMap_FREECACHESIZE); bi++, tmppblock++)
+					if (m_lastfoundfreeblockidx > 0)
 					{
-						if (tmppblock->used == 0)
+						tmppblock = m_blocks + (m_lastfoundfreeblockidx - 1);
+						for (bi = m_lastfoundfreeblockidx; (bi <= m_blocksize) && (cacheidx <= JsCPPUtils_HashMap_FREECACHESIZE); bi++, tmppblock++)
 						{
-							if (pblock == NULL)
+							if (tmppblock->used == 0)
 							{
-								pblock = tmppblock;
-								memset(pblock, 0, sizeof(block_t));
-								*pblockindex = bi;
-							}else{
-								m_freecache[cacheidx++] = bi;
+								if (pblock == NULL)
+								{
+									pblock = tmppblock;
+									memset(pblock, 0, sizeof(block_t));
+									*pblockindex = bi;
+								} else {
+									m_freecache[cacheidx++] = bi;
+								}
 							}
 						}
 					}
