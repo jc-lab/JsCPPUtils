@@ -72,6 +72,7 @@ namespace JsCPPUtils
 		LONG afterlockcount = --((volatile LONG)m_lockcount);
 		if(afterlockcount == 0)
 		{
+			((volatile LONG)m_lockedTID) = 0;
 			::LeaveCriticalSection((LPCRITICAL_SECTION)&m_cs);
 		}
 		return 1;
