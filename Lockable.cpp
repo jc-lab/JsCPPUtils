@@ -20,7 +20,7 @@ namespace JsCPPUtils
 #if defined(JSCUTILS_OS_WINDOWS)
 	Lockable::Lockable()
 	{
-		::InitializeCriticalSection(&m_cs);
+		::InitializeCriticalSectionAndSpinCount(&m_cs, 5000);
 	}
 
 	Lockable::~Lockable()
@@ -39,7 +39,43 @@ namespace JsCPPUtils
 		::LeaveCriticalSection((LPCRITICAL_SECTION)&m_cs);
 		return 1;
 	}
-	
+
+	LockableEx::LockableEx()
+	{
+		::InitializeCriticalSectionAndSpinCount(&m_cs, 5000);
+		m_lockedTID = 0;
+		m_lockcount = 0;
+	}
+
+	LockableEx::~LockableEx()
+	{
+		::DeleteCriticalSection(&m_cs);
+	}
+
+	int LockableEx::lock() const
+	{
+		LONG curtid = ::GetCurrentThreadId();
+		LONG oldLockedTid = ::InterlockedCompareExchange((volatile LONG *)&m_lockedTID, curtid, 0);
+		if (oldLockedTid == curtid)
+		{
+			((volatile LONG)m_lockcount)++;
+		} else {
+			::EnterCriticalSection((LPCRITICAL_SECTION)&m_cs);
+			((volatile LONG)m_lockcount) = 1;
+			((volatile LONG)m_lockedTID) = curtid;
+		}
+		return 1;
+	}
+
+	int LockableEx::unlock() const
+	{
+		LONG afterlockcount = --((volatile LONG)m_lockcount);
+		if(afterlockcount == 0)
+		{
+			::LeaveCriticalSection((LPCRITICAL_SECTION)&m_cs);
+		}
+		return 1;
+	}
 	
 	LockableRW::LockableRW()
 	{

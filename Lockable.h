@@ -42,6 +42,24 @@ namespace JsCPPUtils
 		int unlock() const;
 	};
 
+	class LockableEx
+	{
+	private:
+#if defined(JSCUTILS_OS_WINDOWS)
+		CRITICAL_SECTION m_cs;
+		volatile LONG m_lockedTID;
+		volatile LONG m_lockcount;
+#elif defined(JSCUTILS_OS_LINUX)
+		pthread_mutex_t m_mutex;
+#endif
+
+	public:
+		LockableEx();
+		~LockableEx();
+		int lock() const;
+		int unlock() const;
+	};
+
 	class LockableRW
 	{
 	private:
