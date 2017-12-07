@@ -41,6 +41,11 @@
 #define likely(x)       (x)
 #define unlikely(x)     (x)
 
+#define _JSCUTILS_USE_CUSTOM_ALLOCATOR 1
+typedef void* (__cdecl *JsCUtils_fnMalloc_t)(size_t size);
+typedef void* (__cdecl *JsCUtils_fnRealloc_t)(void *ptr, size_t size);
+typedef void (__cdecl *JsCUtils_fnFree_t)(void *ptr);
+
 #ifdef _MSC_VER
 
 #if _MSC_VER >= 1400

@@ -73,6 +73,12 @@ namespace JsCPPUtils
 				TVALUE value;
 			} block_t;
 
+#ifdef _JSCUTILS_USE_CUSTOM_ALLOCATOR
+			JsCUtils_fnMalloc_t m_custom_malloc;
+			JsCUtils_fnRealloc_t m_custom_realloc;
+			JsCUtils_fnFree_t m_custom_free;
+#endif
+
 			float m_conf_incbucketsthresholdratio; ///< 버킷을 증가할 데이터개수/현재버킷개수 비율의 한계점
 			float m_conf_incbucketfactor; ///< 버킷 증가 비율
 			int m_conf_limitnumofbuckets; ///< 최대 버킷 수
@@ -234,7 +240,7 @@ namespace JsCPPUtils
 						_findnext();
 					return m_pmap->m_blocks[m_curidx - 1].value;
 				}
-				
+
 				TVALUE *getValuePtr()
 				{
 					return &m_pmap->m_blocks[m_curidx - 1].value;
@@ -286,7 +292,13 @@ namespace JsCPPUtils
 			};
 			
 		public:
-			explicit basic_HashMapNTS(int _initial_numofbuckets = 127, int _initial_numofblocks = 256, int _conf_incblocksize = 16, float _conf_incbucketsthresholdratio = 0.8, float _conf_incbucketfactor = 2.0, int _conf_limitnumofbuckets = 4194304)
+			explicit basic_HashMapNTS(int _initial_numofbuckets = 127, int _initial_numofblocks = 256, int _conf_incblocksize = 16, float _conf_incbucketsthresholdratio = 0.8, float _conf_incbucketfactor = 2.0, int _conf_limitnumofbuckets = 4194304
+#ifdef _JSCUTILS_USE_CUSTOM_ALLOCATOR
+				, JsCUtils_fnMalloc_t _custom_malloc = malloc
+				, JsCUtils_fnRealloc_t _custom_realloc = realloc
+				, JsCUtils_fnFree_t _custom_free = free
+#endif
+			)
 				: m_poly(0x741B8CD7)
 				, m_buckets(NULL)
 				, m_blocks(NULL)
@@ -296,22 +308,54 @@ namespace JsCPPUtils
 				, m_conf_incbucketsthresholdratio(_conf_incbucketsthresholdratio)
 				, m_conf_incbucketfactor(_conf_incbucketfactor)
 				, m_conf_limitnumofbuckets(_conf_limitnumofbuckets)
+#ifdef _JSCUTILS_USE_CUSTOM_ALLOCATOR
+				, m_custom_malloc(_custom_malloc)
+				, m_custom_realloc(_custom_realloc)
+				, m_custom_free(_custom_free)
+#endif
 			{
 				blockindex_t bi;
-				
+
+				if (_initial_numofbuckets < 0)
+					_initial_numofbuckets = 127;
+				if (_initial_numofblocks < 0)
+					_initial_numofblocks = 256;
+				if (m_conf_incblocksize < 0)
+					m_conf_incblocksize = 16;
+				if (m_conf_incbucketsthresholdratio < 0)
+					m_conf_incbucketsthresholdratio = 0.8;
+				if (m_conf_incbucketfactor <= 1)
+					m_conf_incbucketfactor = 2.0;
+				if (m_conf_limitnumofbuckets < 0)
+					m_conf_limitnumofbuckets = 4194304;
+
 				m_numofbuckets = _initial_numofbuckets;
 				m_blocksize = _initial_numofblocks;
 				m_blockcount = 0;
-				
+
+#ifdef _JSCUTILS_USE_CUSTOM_ALLOCATOR
+				m_buckets = (blockindex_t*)m_custom_malloc(sizeof(blockindex_t) * m_numofbuckets); // An exception may occur / std::bad_alloc
+#else
 				m_buckets = (blockindex_t*)malloc(sizeof(blockindex_t) * m_numofbuckets); // An exception may occur / std::bad_alloc
+#endif
 				if (m_buckets == NULL)
 					throw std::bad_alloc();
 				memset(m_buckets, 0, sizeof(blockindex_t) * m_numofbuckets);
-				
+
+#ifdef _JSCUTILS_USE_CUSTOM_ALLOCATOR
+				m_blocks = (block_t*)m_custom_malloc(sizeof(block_t) * m_blocksize); // An exception may occur / std::bad_alloc
+#else
 				m_blocks = (block_t*)malloc(sizeof(block_t) * m_blocksize); // An exception may occur / std::bad_alloc
+#endif
+
 				if (m_blocks == NULL)
 				{
-					free(m_buckets); m_buckets = NULL;
+#ifdef _JSCUTILS_USE_CUSTOM_ALLOCATOR
+					m_custom_free(m_buckets);
+#else
+					free(m_buckets);
+#endif
+					m_buckets = NULL;
 					throw std::bad_alloc();
 				}
 				memset(m_blocks, 0, sizeof(block_t) * m_blocksize);
@@ -332,7 +376,11 @@ namespace JsCPPUtils
 				//m_blockcount = 0;
 				if (m_buckets != NULL)
 				{
+#ifdef _JSCUTILS_USE_CUSTOM_ALLOCATOR
+					m_custom_free(m_buckets);
+#else
 					free(m_buckets);
+#endif
 					m_buckets = NULL;
 				}
 				if (m_blocks != NULL)
@@ -350,7 +398,11 @@ namespace JsCPPUtils
 							pblock->used = 0;
 						}
 					}
+#ifdef _JSCUTILS_USE_CUSTOM_ALLOCATOR
+					m_custom_free(m_blocks);
+#else
 					free(m_blocks);
+#endif
 					m_blocks = NULL;
 				}
 			}
@@ -386,7 +438,11 @@ namespace JsCPPUtils
 							break;
 						}
 						
+#ifdef _JSCUTILS_USE_CUSTOM_ALLOCATOR
+						new_buckets = (blockindex_t*)m_custom_malloc(sizeof(blockindex_t) * new_numofbuckets); // An exception may occur / std::bad_alloc
+#else
 						new_buckets = (blockindex_t*)malloc(sizeof(blockindex_t) * new_numofbuckets); // An exception may occur / std::bad_alloc
+#endif
 						if (new_buckets == NULL)
 						{
 							nresult = -1;
@@ -422,7 +478,11 @@ namespace JsCPPUtils
 						
 						if (m_buckets != NULL)
 						{
+#ifdef _JSCUTILS_USE_CUSTOM_ALLOCATOR
+							m_custom_free(m_buckets);
+#else
 							free(m_buckets);
+#endif
 						}
 						m_buckets = new_buckets;
 						m_numofbuckets = new_numofbuckets;
@@ -631,17 +691,17 @@ namespace JsCPPUtils
 				
 				return ref_value;
 			}
-			
+
 			bool isContain(const TKEY &key)
 			{
 				int hash = _hash(key);
-				
+
 				blockindex_t *pbucket = &m_buckets[hash];
 				block_t *pblock = _findblock(*pbucket, key, NULL);
-				
+
 				return (pblock != NULL);
 			}
-			
+
 			void erase(const TKEY &key)
 			{
 				int i;
@@ -710,7 +770,7 @@ namespace JsCPPUtils
 				iter.m_itertype = 1;
 				iter.m_pmap = this;
 				iter.m_nextidx = nextbi;
-				iter.m_remaincount = (pblock != NULL) ? 1 : 0; 
+				iter.m_remaincount = (pblock != NULL) ? 1 : 0;
 				
 				return iter;
 			}
@@ -747,8 +807,20 @@ namespace JsCPPUtils
 		class HashMap : public basic_HashMapNTS<TKEY, TVALUE>, private Lockable
 		{
 		public:
-			explicit HashMap(int _initial_numofbuckets = 127, int _initial_numofblocks = 256, int _conf_incblocksize = 16, float _conf_incbucketsthresholdratio = 0.8, float _conf_incbucketfactor = 2.0, int _conf_limitnumofbuckets = 4194304)
-				: basic_HashMapNTS<TKEY, TVALUE>(_initial_numofbuckets, _initial_numofblocks, _conf_incblocksize, _conf_incbucketsthresholdratio, _conf_incbucketfactor, _conf_limitnumofbuckets)
+			explicit HashMap(int _initial_numofbuckets = 127, int _initial_numofblocks = 256, int _conf_incblocksize = 16, float _conf_incbucketsthresholdratio = 0.8, float _conf_incbucketfactor = 2.0, int _conf_limitnumofbuckets = 4194304
+#ifdef _JSCUTILS_USE_CUSTOM_ALLOCATOR
+				, JsCUtils_fnMalloc_t _custom_malloc = malloc
+				, JsCUtils_fnRealloc_t _custom_realloc = realloc
+				, JsCUtils_fnFree_t _custom_free = free
+#endif
+			)
+				: basic_HashMapNTS<TKEY, TVALUE>(_initial_numofbuckets, _initial_numofblocks, _conf_incblocksize, _conf_incbucketsthresholdratio, _conf_incbucketfactor, _conf_limitnumofbuckets
+#ifdef _JSCUTILS_USE_CUSTOM_ALLOCATOR
+					, _custom_malloc
+					, _custom_realloc
+					, _custom_free
+#endif
+					)
 			{
 			}
 			
@@ -823,8 +895,20 @@ namespace JsCPPUtils
 		class HashMapRWLock : public basic_HashMapNTS<TKEY, TVALUE>, private LockableRW
 		{
 		public:
-			explicit HashMapRWLock(int _initial_numofbuckets = 127, int _initial_numofblocks = 256, int _conf_incblocksize = 16, float _conf_incbucketsthresholdratio = 0.8, float _conf_incbucketfactor = 2.0, int _conf_limitnumofbuckets = 4194304)
-				: basic_HashMapNTS<TKEY, TVALUE>(_initial_numofbuckets, _initial_numofblocks, _conf_incblocksize, _conf_incbucketsthresholdratio, _conf_incbucketfactor, _conf_limitnumofbuckets)
+			explicit HashMapRWLock(int _initial_numofbuckets = 127, int _initial_numofblocks = 256, int _conf_incblocksize = 16, float _conf_incbucketsthresholdratio = 0.8, float _conf_incbucketfactor = 2.0, int _conf_limitnumofbuckets = 4194304
+#ifdef _JSCUTILS_USE_CUSTOM_ALLOCATOR
+				, JsCUtils_fnMalloc_t _custom_malloc = malloc
+				, JsCUtils_fnRealloc_t _custom_realloc = realloc
+				, JsCUtils_fnFree_t _custom_free = free
+#endif
+			)
+				: basic_HashMapNTS<TKEY, TVALUE>(_initial_numofbuckets, _initial_numofblocks, _conf_incblocksize, _conf_incbucketsthresholdratio, _conf_incbucketfactor, _conf_limitnumofbuckets
+#ifdef _JSCUTILS_USE_CUSTOM_ALLOCATOR
+					, _custom_malloc
+					, _custom_realloc
+					, _custom_free
+#endif
+					)
 			{
 			}
 			
