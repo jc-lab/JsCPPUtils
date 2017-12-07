@@ -43,8 +43,6 @@ namespace JsCPPUtils
 	LockableEx::LockableEx()
 	{
 		::InitializeCriticalSectionAndSpinCount(&m_cs, 5000);
-		m_lockedTID = 0;
-		m_lockcount = 0;
 	}
 
 	LockableEx::~LockableEx()
@@ -54,27 +52,13 @@ namespace JsCPPUtils
 
 	int LockableEx::lock() const
 	{
-		LONG curtid = ::GetCurrentThreadId();
-		LONG oldLockedTid = ::InterlockedCompareExchange((volatile LONG *)&m_lockedTID, curtid, 0);
-		if (oldLockedTid == curtid)
-		{
-			((volatile LONG)m_lockcount)++;
-		} else {
-			::EnterCriticalSection((LPCRITICAL_SECTION)&m_cs);
-			((volatile LONG)m_lockcount) = 1;
-			((volatile LONG)m_lockedTID) = curtid;
-		}
+		::EnterCriticalSection((LPCRITICAL_SECTION)&m_cs);
 		return 1;
 	}
 
 	int LockableEx::unlock() const
 	{
-		LONG afterlockcount = --((volatile LONG)m_lockcount);
-		if(afterlockcount == 0)
-		{
-			((volatile LONG)m_lockedTID) = 0;
-			::LeaveCriticalSection((LPCRITICAL_SECTION)&m_cs);
-		}
+		::LeaveCriticalSection((LPCRITICAL_SECTION)&m_cs);
 		return 1;
 	}
 	
