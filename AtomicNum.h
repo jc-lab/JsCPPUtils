@@ -506,8 +506,48 @@ namespace JsCPPUtils
 	private:
 		basic_AtomicNumAbstract<T> *m_pimpl;
 
+#ifdef _JSCUTILS_USE_CUSTOM_ALLOCATOR
+		JsCUtils_fnMalloc_t m_custom_malloc;
+		JsCUtils_fnRealloc_t m_custom_realloc;
+		JsCUtils_fnFree_t m_custom_free;
+#endif
+
 		void _init(T initialvalue)
 		{
+#ifdef _JSCUTILS_USE_CUSTOM_ALLOCATOR
+#if defined(WIN64) || defined(_WIN64)
+			if(sizeof(T) <= 8)
+			{
+				if (m_custom_malloc)
+				{
+					m_pimpl = (basic_AtomicNumSYS64<T>*)m_custom_malloc(sizeof(basic_AtomicNumSYS64<T>));
+					new (m_pimpl) basic_AtomicNumSYS64<T>(initialvalue);
+				}
+				else 
+					m_pimpl = new basic_AtomicNumSYS64<T>(initialvalue);
+			}else
+#else
+			if(sizeof(T) <= 4)
+			{
+				if (m_custom_malloc)
+				{
+					m_pimpl = (basic_AtomicNumSYS32<T>*)m_custom_malloc(sizeof(basic_AtomicNumSYS32<T>));
+					new (m_pimpl) basic_AtomicNumSYS32<T>(initialvalue);
+				}
+				else
+					m_pimpl = new basic_AtomicNumSYS32<T>(initialvalue);
+			}else
+#endif
+			{
+				if (m_custom_malloc)
+				{
+					m_pimpl = (basic_AtomicNumMutex<T>*)m_custom_malloc(sizeof(basic_AtomicNumMutex<T>));
+					new (m_pimpl) basic_AtomicNumMutex<T>(initialvalue);
+				}
+				else
+					m_pimpl = new basic_AtomicNumMutex<T>(initialvalue);
+			}
+#else
 #if defined(WIN64) || defined(_WIN64)
 			if(sizeof(T) <= 8)
 			{
@@ -522,26 +562,59 @@ namespace JsCPPUtils
 			{
 				m_pimpl = new basic_AtomicNumMutex<T>(initialvalue);
 			}
+#endif
 		}
 
 	public:
 		AtomicNum()
+#ifdef _JSCUTILS_USE_CUSTOM_ALLOCATOR
+			:
+			m_custom_malloc(NULL),
+			m_custom_realloc(NULL),
+			m_custom_free(NULL)
+#endif
 		{
 			_init(0);
 		}
 
-		AtomicNum(int initialvalue)
+		AtomicNum(int initialvalue
+#ifdef _JSCUTILS_USE_CUSTOM_ALLOCATOR
+			, JsCUtils_fnMalloc_t _custom_malloc = NULL
+			, JsCUtils_fnRealloc_t _custom_realloc = NULL
+			, JsCUtils_fnFree_t _custom_free = NULL
+#endif
+		)
 		{
+#ifdef _JSCUTILS_USE_CUSTOM_ALLOCATOR
+			m_custom_malloc = _custom_malloc;
+			m_custom_realloc = _custom_realloc;
+			m_custom_free = _custom_free;
+#endif
 			_init(initialvalue);
 		}
 	
 		~AtomicNum()
 		{
+#ifdef _JSCUTILS_USE_CUSTOM_ALLOCATOR
 			if(m_pimpl != NULL)
+			{
+				if (m_custom_free)
+				{
+					m_pimpl->~basic_AtomicNumAbstract<T>();
+					m_custom_free(m_pimpl);
+					m_pimpl = NULL;
+				} else {
+					delete m_pimpl;
+					m_pimpl = NULL;
+				}
+			}
+#else
+			if (m_pimpl != NULL)
 			{
 				delete m_pimpl;
 				m_pimpl = NULL;
 			}
+#endif
 		}
 
 		void set(T value)
