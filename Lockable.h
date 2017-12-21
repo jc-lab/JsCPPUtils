@@ -49,6 +49,11 @@ namespace JsCPPUtils
 		CRITICAL_SECTION m_cs;
 #elif defined(JSCUTILS_OS_LINUX)
 		pthread_mutex_t m_mutex;
+		pthread_cond_t m_cond;
+		volatile int m_lockcnt;
+		volatile pthread_t m_lockedtid;
+		volatile int m_recursionCount;
+		volatile int m_mutexlocked;
 #endif
 
 	public:

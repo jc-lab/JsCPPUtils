@@ -13,6 +13,7 @@
 #if defined(JSCUTILS_OS_LINUX)
 #include <errno.h>
 #include <unistd.h>
+#include <string.h>
 #endif
 
 namespace JsCPPUtils
@@ -135,6 +136,73 @@ namespace JsCPPUtils
 
 	int Lockable::unlock() const
 	{
+		pthread_mutex_unlock((pthread_mutex_t*)&m_mutex);
+		return 1;
+	}
+	
+	LockableEx::LockableEx()
+	{
+		m_lockcnt = 0;
+		m_recursionCount = 0;
+		m_lockedtid = (pthread_t)0;
+		pthread_mutex_init(&m_mutex, NULL);
+		pthread_cond_init(&m_cond, 0);
+		m_mutexlocked = 0;
+	}
+
+	LockableEx::~LockableEx()
+	{
+		pthread_mutex_destroy(&m_mutex);
+		pthread_cond_destroy(&m_cond);
+	}
+
+	int LockableEx::lock() const
+	{
+		pthread_t curtid = pthread_self();
+		int rcx = 1;
+		
+		if (__sync_fetch_and_add((volatile int *)&m_lockcnt, 1) != 0)
+		{
+			// failed to lock it.
+			if (m_lockedtid == curtid)
+			{
+				int *p = (int*)&m_recursionCount; *p++;
+				return 1;
+			}else{
+				volatile int *pmutexlocked = (volatile int *)&m_mutexlocked;
+				pthread_mutex_lock((pthread_mutex_t*)&m_mutex);
+				while (m_lockcnt != 0)
+					pthread_cond_wait((pthread_cond_t*)&m_cond, (pthread_mutex_t*)&m_mutex); // unlock mutex -> WAITING -> lock mutex
+				*pmutexlocked = 1;
+			}
+		}
+		
+		memcpy((void*)&m_lockedtid, &curtid, sizeof(curtid));
+		memcpy((void*)&m_recursionCount, &rcx, sizeof(rcx));
+		
+		return 1;
+	}
+
+	int LockableEx::unlock() const
+	{
+		int curRecursionCount;
+		int *p = (int*)&m_recursionCount;
+		--*p;
+		if (curRecursionCount > 0)
+		{
+			__sync_fetch_and_sub((volatile int *)&m_lockcnt, 1);
+		}else{
+			volatile int *pmutexlocked = (volatile int *)&m_mutexlocked;
+			memset((void*)&m_lockedtid, 0, sizeof(m_lockedtid));
+			__sync_fetch_and_sub((volatile int *)&m_lockcnt, 1);
+			if (*pmutexlocked)
+			{
+				*pmutexlocked = 0;
+				pthread_cond_signal((pthread_cond_t*)&m_cond);
+				pthread_mutex_unlock((pthread_mutex_t*)&m_mutex);
+			}
+		}
+		
 		pthread_mutex_unlock((pthread_mutex_t*)&m_mutex);
 		return 1;
 	}
