@@ -9,6 +9,7 @@
  *            of the MIT license.  See the LICENSE file for details.
  */
 
+
 #if defined(_MSC_VER) && (_MSC_VER >= 1200)
 #pragma once
 #endif
@@ -18,6 +19,8 @@
 
 #include <stdio.h>
 #include <assert.h>
+
+#include "Lockable.h"
 
 /******************** Loki begin ********************/
 
@@ -78,7 +81,7 @@ namespace _JsCPPUtils_private
 		template <class T, class U>
 			struct SuperSubclass
 			{
-				enum {value = (::Loki::Conversion<const volatile U*, const volatile T*>::exists &&
+				enum {value = (::_JsCPPUtils_private::Loki::Conversion<const volatile U*, const volatile T*>::exists &&
 							  !::_JsCPPUtils_private::Loki::Conversion<const volatile T*, const volatile void*>::sameType)
 				};
 
@@ -175,40 +178,67 @@ namespace _JsCPPUtils_private
 namespace JsCPPUtils
 {
 	template <class T>
-		class SmartPointerNTS {
+		class SmartPointer {
 		private:
-			bool m_isRoot;
+			unsigned int m_isRoot;
 			T *m_ptr;
-			SmartPointerNTS<T> *m_root_smartptr;
+			SmartPointer<T> *m_root_smartptr;
 
+			//Lockable *m_pLock;
 			int m_refCount;
 
+			int m_isDeleted;
+			
+			void setPointer(T* p, bool isinit = false)
+			{
+				if (!isinit)
+				{
+					if (m_root_smartptr != NULL)
+					{
+						m_root_smartptr->delRef();
+						// m_root_smartptr = NULL;
+					}
+				}
+				
+				if (p)
+				{
+					if (::_JsCPPUtils_private::Loki::SuperSubclassStrict<SmartPointer<T>, T >::value)
+						m_root_smartptr = (SmartPointer<T>*)p;
+					else
+						m_root_smartptr = new SmartPointer<T>(p, true);
+					m_ptr = p;
+					m_root_smartptr->addRef();
+				}else{
+					m_ptr = NULL;
+					m_root_smartptr = NULL;
+				}
+			}
+
 		protected:
-			void OnPreRelease()
+			virtual void OnPreRelease()
 			{
 			}
 
-			explicit SmartPointerNTS(T* p, bool isRoot)
-				: m_refCount(0)
-				, m_root_smartptr(NULL)
-				, m_ptr(NULL)
+			explicit SmartPointer(T* p, bool isRoot)
+						: //m_pLock(NULL),
+				m_refCount(0)
 			{
-				m_isRoot = isRoot;
+				m_isRoot = isRoot ? 1 : 0;
 				if (isRoot)
 				{
 					m_ptr = p;
 					m_root_smartptr = NULL;
+					//m_pLock = new Lockable();
 				} else {
-					m_ptr = NULL;
-					if(p != NULL)
-						m_root_smartptr = new SmartPointerNTS<T>(p);
+					setPointer(p, true);
 				}
 			}
 
-			explicit SmartPointerNTS(const SmartPointerNTS<T>* pRefObj)
-				: m_isRoot(false)
+			explicit SmartPointer(const SmartPointer<T>* pRefObj)
+				: m_isRoot(0)
 				, m_ptr(NULL)
 				, m_root_smartptr(NULL)
+				//, m_pLock(NULL)
 				, m_refCount(0)
 			{
 				m_root_smartptr = pRefObj->m_root_smartptr;
@@ -222,11 +252,15 @@ namespace JsCPPUtils
 		public:
 			void addRef()
 			{
-				if (m_isRoot)
+				if (m_isRoot == 1)
 				{
+					//m_pLock->lock();
 					m_refCount++;
-				}else{
+					//m_pLock->unlock();
+				}else if(m_isRoot == 0){
 					m_root_smartptr->addRef();
+				}else{
+					printf("BUG DETECTED!\n");
 				}
 			}
 
@@ -238,13 +272,14 @@ namespace JsCPPUtils
 			{
 				if (m_isRoot == 1)
 				{
-					m_pLock->lock();
+					//m_pLock->lock();
 					m_refCount--;
 					if (m_refCount == 0)
 					{
 						if ((void*)m_ptr == (void*)this)
 						{
 							OnPreRelease();
+							m_isDeleted = 0xFFFF5555;
 							delete m_ptr;
 						} else {
 							if (m_ptr != NULL)
@@ -257,7 +292,7 @@ namespace JsCPPUtils
 						printf("BUG DETECTED!\n");
 						assert(m_isRoot >= 0);
 					}
-					m_pLock->unlock();
+					//m_pLock->unlock();
 					return false;
 				}else if(m_isRoot == 0){
 					if (m_root_smartptr != NULL)
@@ -279,37 +314,31 @@ namespace JsCPPUtils
 			}
 
 		public:
-			explicit SmartPointerNTS()
-				: m_isRoot(false)
+			explicit SmartPointer()
+				: m_isRoot(0)
 				, m_ptr(NULL)
 				, m_root_smartptr(NULL)
+				//, m_pLock(NULL)
 				, m_refCount(0)
 			{
 			}
 		
-			SmartPointerNTS(T* p)
-				: m_isRoot(false)
+			SmartPointer(T* p)
+				: m_isRoot(0)
 				, m_ptr(NULL)
 				, m_root_smartptr(NULL)
+				//, m_pLock(NULL)
 				, m_refCount(0)
 			{
-				if (::_JsCPPUtils_private::Loki::SuperSubclassStrict<SmartPointerNTS<T>, T >::value)
-				{
-					m_root_smartptr = (SmartPointerNTS<T>*)p;
-				}
-				else
-				{
-					m_root_smartptr = new SmartPointerNTS<T>(p, true);
-				}
-				m_ptr = m_root_smartptr->m_ptr;
-				m_root_smartptr->addRef();
+				setPointer(p, true);
 			}
 
-					// Copy constructor.
-			SmartPointerNTS(const SmartPointerNTS<T>& refObj)
-				: m_isRoot(false)
+			// Copy constructor.
+			SmartPointer(const SmartPointer<T>& refObj)
+				: m_isRoot(0)
 				, m_ptr(NULL)
 				, m_root_smartptr(NULL)
+				//, m_pLock(NULL)
 				, m_refCount(0)
 			{
 				m_root_smartptr = refObj.m_root_smartptr;
@@ -321,11 +350,12 @@ namespace JsCPPUtils
 			}
 
 #if (__cplusplus >= 201103) || (defined(HAS_MOVE_SEMANTICS) && HAS_MOVE_SEMANTICS == 1)
-					// Move constructor
-			explicit SmartPointerNTS(SmartPointerNTS<T> &&refObj)
-				: m_isRoot(false)
+			// Move constructor
+			explicit SmartPointer(SmartPointer<T> &&refObj)
+				: m_isRoot(0)
 				, m_ptr(NULL)
 				, m_root_smartptr(NULL)
+				//, m_pLock(NULL)
 				, m_refCount(0)
 			{
 				m_root_smartptr = refObj.m_root_smartptr;
@@ -337,12 +367,20 @@ namespace JsCPPUtils
 			}
 #endif
 
-			~SmartPointerNTS()
+			~SmartPointer()
 			{
-				if (!m_isRoot)
+				if (m_isRoot == 0)
 				{
 					delRef();
+				}else if(m_isRoot != 1)
+				{
+					printf("BUG DETECTED!\n");
 				}
+				/*if (m_pLock != NULL)
+				{
+					delete m_pLock;
+					m_pLock = NULL;
+				}*/
 			}
 
 			T* operator->() const
@@ -350,52 +388,40 @@ namespace JsCPPUtils
 				return m_ptr;
 			}
 
-					/*
-					T& operator *() const
-					{
-						return *m_ptr;
-				}
-				*/
+			/*
+			T& operator *() const
+			{
+				return *m_ptr;
+			}
+			*/
 
 			T* getPtr() const
 			{
 				return m_ptr;
 			}
 
-			SmartPointerNTS<T>& operator=(T* p)
+			SmartPointer<T>& operator=(T* p)
 			{
-				if (m_root_smartptr != NULL)
-					m_root_smartptr->delRef();
-				
-				if (::_JsCPPUtils_private::Loki::SuperSubclassStrict<SmartPointerNTS<T>, T >::value)
-				{
-					m_root_smartptr = (SmartPointerNTS<T>*)p;
-				}
-				else
-				{
-					m_root_smartptr = new SmartPointerNTS(p, true);
-				}
-				m_ptr = m_root_smartptr->m_ptr;
-				m_root_smartptr->addRef();
+				setPointer(p);
 				return *this;
 			}
+			
+			/*
+			SmartPointer<T>& operator=(const SmartPointer<T>& refObj)
+			{
+			if(m_root_smartptr != NULL)
+			m_root_smartptr->delRef();
+			m_root_smartptr = refObj.m_root_smartptr;
+			if(m_root_smartptr != NULL)
+			{
+			m_ptr = m_root_smartptr->m_ptr;
+			m_root_smartptr->addRef();
+			}
+			return *this;
+			}
+			*/
 
-					/*
-					SmartPointerNTS<T>& operator=(const SmartPointerNTS<T>& refObj)
-					{
-						if(m_root_smartptr != NULL)
-							m_root_smartptr->delRef();
-				m_root_smartptr = refObj.m_root_smartptr;
-				if(m_root_smartptr != NULL)
-				{
-					m_ptr = m_root_smartptr->m_ptr;
-					m_root_smartptr->addRef();
-		}
-		return *this;
-}
-*/
-
-			void operator=(const SmartPointerNTS<T>& refObj)
+			void operator=(const SmartPointer<T>& refObj)
 			{
 				if (m_root_smartptr != NULL)
 					m_root_smartptr->delRef();
@@ -412,64 +438,34 @@ namespace JsCPPUtils
 				return (m_ptr == NULL);
 			}
 
-			inline bool operator==(SmartPointerNTS<T> p) const
+			bool operator==(SmartPointer<T> p) const
 			{
 				return m_ptr == p.m_ptr;
 			}
-			inline bool operator!=(SmartPointerNTS<T> p) const
+
+			bool operator!=(SmartPointer<T> p) const
 			{
 				return m_ptr != p.m_ptr;
 			}
-			inline bool operator<(SmartPointerNTS<T> p) const
-			{
-				return m_ptr < p.m_ptr;
-			}
-			inline bool operator>(SmartPointerNTS<T> p) const
-			{
-				return m_ptr > p.m_ptr;
-			}
-			inline bool operator<=(SmartPointerNTS<T> p) const
-			{
-				return !(m_ptr > p.m_ptr);
-			}
-			inline bool operator>=(SmartPointerNTS<T> p) const
-			{
-				return !(m_ptr < p.m_ptr);
-			}
 
-			inline bool operator==(T* p) const
+			bool operator==(T* p) const
 			{
 				return m_ptr == p;
 			}
-			inline bool operator!=(T* p) const
+
+			bool operator!=(T* p) const
 			{
 				return m_ptr != p;
 			}
-			inline bool operator<(T* p) const
-			{
-				return m_ptr < p;
-			}
-			inline bool operator>(T* p) const
-			{
-				return m_ptr > p;
-			}
-			inline bool operator<=(T* p) const
-			{
-				return !(m_ptr > p);
-			}
-			inline bool operator>=(T* p) const
-			{
-				return !(m_ptr < p);
-			}
 
-			SmartPointerNTS<T> *detach()
+			SmartPointer<T> *detach()
 			{
 				if (m_root_smartptr != NULL)
 					m_root_smartptr->addRef();
 				return m_root_smartptr;
 			}
 
-			void attach(SmartPointerNTS<T> *p)
+			void attach(SmartPointer<T> *p)
 			{
 				if (m_root_smartptr != NULL)
 					m_root_smartptr->delRef();
@@ -480,4 +476,4 @@ namespace JsCPPUtils
 		};
 }
 
-#endif /* __JSCPPUTILS_SMARTPOINTERNTS_H__ */
+#endif /* __JSCPPUTILS_SMARTPOINTER_H__ */
