@@ -701,6 +701,11 @@ namespace JsCPPUtils
 				return ref_value;
 			}
 
+			blockindex_t size() const
+			{
+				return m_blockcount;
+			}
+
 			bool isContain(const TKEY &key)
 			{
 				int hash = _hash(key);
