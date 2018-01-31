@@ -21,6 +21,7 @@ namespace JsCPPUtils
 #if defined(JSCUTILS_OS_WINDOWS)
 	Lockable::Lockable()
 	{
+		m_ownertid = 0;
 		::InitializeCriticalSectionAndSpinCount(&m_cs, 5000);
 	}
 
@@ -31,12 +32,28 @@ namespace JsCPPUtils
 
 	int Lockable::lock() const
 	{
+		DWORD *pownertid = (DWORD*)&m_ownertid;
 		::EnterCriticalSection((LPCRITICAL_SECTION)&m_cs);
+		*pownertid =::GetCurrentThreadId();
 		return 1;
+	}
+
+	int Lockable::trylock() const
+	{
+		DWORD *pownertid = (DWORD*)&m_ownertid;
+		if (::TryEnterCriticalSection((LPCRITICAL_SECTION)&m_cs))
+		{
+			*pownertid =:: GetCurrentThreadId();
+			return 1;
+		}else{
+			return 0;
+		}
 	}
 
 	int Lockable::unlock() const
 	{
+		DWORD *pownertid = (DWORD*)&m_ownertid;
+		*pownertid = 0;
 		::LeaveCriticalSection((LPCRITICAL_SECTION)&m_cs);
 		return 1;
 	}
@@ -121,6 +138,7 @@ namespace JsCPPUtils
 	Lockable::Lockable()
 	{
 		pthread_mutex_init(&m_mutex, NULL);
+		m_ownertid = 0;
 	}
 
 	Lockable::~Lockable()
@@ -130,12 +148,30 @@ namespace JsCPPUtils
 
 	int Lockable::lock() const
 	{
+		pthread_t *pownertid = (pthread_t*)&m_ownertid;
 		pthread_mutex_lock((pthread_mutex_t*)&m_mutex);
+		*pownertid = pthread_self();
 		return 1;
+	}
+
+	int Lockable::trylock() const
+	{
+		int rc;
+		pthread_t *pownertid = (pthread_t*)&m_ownertid;
+		rc = pthread_mutex_trylock((pthread_mutex_t*)&m_mutex);
+		if (rc == 0)
+		{
+			*pownertid = pthread_self();
+			return 1;
+		}else{
+			return -rc;
+		}
 	}
 
 	int Lockable::unlock() const
 	{
+		pthread_t *pownertid = (pthread_t*)&m_ownertid;
+		*pownertid = 0;
 		pthread_mutex_unlock((pthread_mutex_t*)&m_mutex);
 		return 1;
 	}

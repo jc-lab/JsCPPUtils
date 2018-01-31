@@ -32,15 +32,26 @@ namespace JsCPPUtils
 	private:
 #if defined(JSCUTILS_OS_WINDOWS)
 		CRITICAL_SECTION m_cs;
+		DWORD m_ownertid;
 #elif defined(JSCUTILS_OS_LINUX)
 		pthread_mutex_t m_mutex;
+		pthread_t m_ownertid;
 #endif
 
 	public:
 		Lockable();
 		~Lockable();
 		int lock() const;
+		int trylock() const;
 		int unlock() const;
+		
+#if defined(JSCUTILS_OS_WINDOWS)
+		DWORD getOwnerTid() { return m_ownertid; }
+		DWORD getCurrentTid() { return::GetCurrentThreadId(); }
+#elif defined(JSCUTILS_OS_LINUX)
+		pthread_t getOwnerTid() { return m_ownertid; }
+		pthread_t getCurrentTid() { return ::pthread_self(); }
+#endif
 	};
 
 	class LockableEx
