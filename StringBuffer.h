@@ -609,6 +609,8 @@ namespace JsCPPUtils
 		{
 			CHARTYPE *startptr = m_pbuf;
 			CHARTYPE *lastptr;
+			int startpos = 0;
+			int remainlen;
 
 			if(m_pbuf == NULL)
 				return NULL;
@@ -619,13 +621,20 @@ namespace JsCPPUtils
 				return m_pbuf;
 			}
 
-			while((*startptr == (CHARTYPE)' ') || (*startptr == (CHARTYPE)'\t') || (*startptr == (CHARTYPE)'\r') || (*startptr == (CHARTYPE)'\n'))
+			while ((startpos < m_bufpos) && ((*startptr == (CHARTYPE)' ') || (*startptr == (CHARTYPE)'\t') || (*startptr == (CHARTYPE)'\r') || (*startptr == (CHARTYPE)'\n')))
+			{
+				startpos++;
 				startptr++;
+			}
 
-			lastptr = &startptr[m_bufpos-1];
+			remainlen = m_bufpos - startpos;
+			lastptr = &m_pbuf[m_bufpos - 1];
 
-			while((*lastptr == (CHARTYPE)' ') || (*lastptr == (CHARTYPE)'\t') || (*lastptr == (CHARTYPE)'\r') || (*lastptr == (CHARTYPE)'\n'))
+			while ((remainlen > 0) && ((*lastptr == (CHARTYPE)' ') || (*lastptr == (CHARTYPE)'\t') || (*lastptr == (CHARTYPE)'\r') || (*lastptr == (CHARTYPE)'\n')))
+			{
 				*lastptr-- = 0;
+				remainlen--;
+			}
 
 			return startptr;
 		}
