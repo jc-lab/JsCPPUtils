@@ -257,7 +257,7 @@ namespace JsCPPUtils
 					m_root_smartptr = NULL;
 					m_pLock = new Lockable();
 				} else {
-					setPointer(p, true);
+					setPointerSamePtr(p, true);
 				}
 			}
 
