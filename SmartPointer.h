@@ -9,7 +9,6 @@
  *            of the MIT license.  See the LICENSE file for details.
  */
 
-
 #if defined(_MSC_VER) && (_MSC_VER >= 1200)
 #pragma once
 #endif
@@ -19,6 +18,7 @@
 
 #include <stdio.h>
 #include <assert.h>
+#include <exception>
 
 #include "Lockable.h"
 
@@ -189,7 +189,7 @@ namespace JsCPPUtils
 
 			int m_isDeleted;
 			
-			void setPointer(T* p, bool isinit = false)
+			void setPointerSamePtr(T* p, bool isinit = false)
 			{
 				if (!isinit)
 				{
@@ -209,6 +209,33 @@ namespace JsCPPUtils
 					m_ptr = p;
 					m_root_smartptr->addRef();
 				}else{
+					m_ptr = NULL;
+					m_root_smartptr = NULL;
+				}
+			}
+
+			void setPointerOtherPtr(T* p, bool isinit = false)
+			{
+				if (!isinit)
+				{
+					if (m_root_smartptr != NULL)
+					{
+						m_root_smartptr->delRef();
+						// m_root_smartptr = NULL;
+					}
+				}
+
+				if (p)
+				{
+					if (::_JsCPPUtils_private::Loki::SuperSubclassStrict<SmartPointer<T>, T >::value)
+						m_root_smartptr = (SmartPointer<T>*)p;
+					else
+					{
+						throw std::exception("This pointer is NOT SubClass for SmartPointer<T>");
+					}
+					m_ptr = p;
+					m_root_smartptr->addRef();
+				} else {
 					m_ptr = NULL;
 					m_root_smartptr = NULL;
 				}
@@ -323,6 +350,17 @@ namespace JsCPPUtils
 			{
 			}
 		
+			template <typename U>
+			SmartPointer(U* p)
+				: m_isRoot(0)
+				, m_ptr(NULL)
+				, m_root_smartptr(NULL)
+				, m_pLock(NULL)
+				, m_refCount(0)
+			{
+				setPointerOtherPtr(p, true);
+			}
+
 			SmartPointer(T* p)
 				: m_isRoot(0)
 				, m_ptr(NULL)
@@ -330,7 +368,7 @@ namespace JsCPPUtils
 				, m_pLock(NULL)
 				, m_refCount(0)
 			{
-				setPointer(p, true);
+				setPointerSamePtr(p, true);
 			}
 
 			// Copy constructor.
@@ -400,9 +438,16 @@ namespace JsCPPUtils
 				return m_ptr;
 			}
 
+			template <typename U>
+			SmartPointer<T>& operator=(U* p)
+			{
+				setPointerOtherPtr(p);
+				return *this;
+			}
+
 			SmartPointer<T>& operator=(T* p)
 			{
-				setPointer(p);
+				setPointerSamePtr(p);
 				return *this;
 			}
 			
