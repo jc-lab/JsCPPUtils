@@ -16,7 +16,6 @@
 #define __JSCPPUTILS_LOCKABLE_H__
 
 #include "Common.h"
-#define JSCUTILS_OS_LINUX
 
 #if defined(JSCUTILS_OS_WINDOWS)
 #include <windows.h>
