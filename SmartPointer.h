@@ -20,7 +20,7 @@
 #include <assert.h>
 #include <exception>
 
-#include "Lockable.h"
+#include "AtomicNum.h"
 
 /******************** Loki begin ********************/
 
@@ -175,349 +175,190 @@ namespace _JsCPPUtils_private
 
 /******************** Loki end ********************/
 
+namespace _JsCPPUtils_private
+{
+	class SmartPointerBase
+	{
+	protected:
+		class RootManager
+		{
+		public:
+			JsCPPUtils::AtomicNum<int> refcnt;
+			RootManager() : refcnt(1) {}
+			virtual void destroy() = 0;
+			virtual ~RootManager() {};
+		};
+
+		template <class U, class Deleter>
+		class RootManagerImpl : public RootManager
+		{
+		private:
+			U *ptr;
+			Deleter d;
+
+		public:
+			RootManagerImpl(U *_ptr, Deleter _deleter) {
+				this->ptr = _ptr;
+				this->d = _deleter;
+			}
+
+			void destroy() {
+				d(this->ptr);
+				this->ptr = NULL;
+			}
+
+			virtual ~RootManagerImpl() { }
+		};
+
+		template <class U>
+		class DefaultDeleter
+		{
+		public:
+			void operator()(U *ptr) const
+			{
+				delete ptr;
+			}
+		};
+
+		RootManager *m_rootManager;
+		void* m_ptr;
+
+		void copyFrom(const SmartPointerBase &_ref)
+		{
+			m_rootManager = _ref.m_rootManager;
+			m_ptr = _ref.m_ptr;
+		}
+	};
+}
+
 namespace JsCPPUtils
 {
 	template <class T>
-		class SmartPointer {
+		class SmartPointer : public ::_JsCPPUtils_private::SmartPointerBase
+		{
 		private:
-			unsigned int m_isRoot;
-			T *m_ptr;
-			SmartPointer<T> *m_root_smartptr;
-
-			Lockable *m_pLock;
-			int m_refCount;
-
-			int m_isDeleted;
-			
-			void setPointerSamePtr(T* p, bool isinit = false)
+			void _constructor()
 			{
-				if (!isinit)
-				{
-					if (m_root_smartptr != NULL)
-					{
-						m_root_smartptr->delRef();
-						// m_root_smartptr = NULL;
-					}
-				}
-				
-				if (p)
-				{
-					if (::_JsCPPUtils_private::Loki::SuperSubclassStrict<SmartPointer<T>, T >::value)
-						m_root_smartptr = (SmartPointer<T>*)p;
-					else
-						m_root_smartptr = new SmartPointer<T>(p, true);
-					m_ptr = p;
-					m_root_smartptr->addRef();
-				}else{
-					m_ptr = NULL;
-					m_root_smartptr = NULL;
-				}
+				m_rootManager = NULL;
+				m_ptr = NULL;
 			}
 
-			void setPointerOtherPtr(T* p, bool isinit = false)
+			template <class U, class Deleter>
+			void setPointer(U* ptr, Deleter d)
 			{
-				if (!isinit)
+				delRef();
+				_constructor();
+				if (ptr)
 				{
-					if (m_root_smartptr != NULL)
-					{
-						m_root_smartptr->delRef();
-						// m_root_smartptr = NULL;
-					}
+					m_rootManager = new RootManagerImpl<U, Deleter>(ptr, d);
+					m_ptr = ptr;
 				}
-
-				if (p)
-				{
-					if (::_JsCPPUtils_private::Loki::SuperSubclassStrict<SmartPointer<T>, T >::value)
-						m_root_smartptr = (SmartPointer<T>*)p;
-					else
-					{
-						throw std::exception("This pointer is NOT SubClass for SmartPointer<T>");
-					}
-					m_ptr = p;
-					m_root_smartptr->addRef();
-				} else {
-					m_ptr = NULL;
-					m_root_smartptr = NULL;
-				}
-			}
-
-		protected:
-			virtual void OnPreRelease()
-			{
-			}
-
-			explicit SmartPointer(T* p, bool isRoot)
-				: m_pLock(NULL)
-				, m_refCount(0)
-			{
-				m_isRoot = isRoot ? 1 : 0;
-				if (isRoot)
-				{
-					m_ptr = p;
-					m_root_smartptr = NULL;
-					m_pLock = new Lockable();
-				} else {
-					setPointerSamePtr(p, true);
-				}
-			}
-
-			explicit SmartPointer(const SmartPointer<T>* pRefObj)
-				: m_isRoot(0)
-				, m_ptr(NULL)
-				, m_root_smartptr(NULL)
-				, m_pLock(NULL)
-				, m_refCount(0)
-			{
-				m_root_smartptr = pRefObj->m_root_smartptr;
-				if (m_root_smartptr != NULL)
-				{
-					m_ptr = m_root_smartptr->m_ptr;
-					m_root_smartptr->addRef();
-				}
-			}
-
-		public:
-			void addRef()
-			{
-				if (m_isRoot == 1)
-				{
-					m_pLock->lock();
-					m_refCount++;
-					m_pLock->unlock();
-				}else if(m_isRoot == 0){
-					m_root_smartptr->addRef();
-				}else{
-					printf("BUG DETECTED!\n");
-				}
-			}
-
-			/**
-			 * @return	Returns true if the reference no longer exists and is released.
-			 *			Otherwise, returns false.
-			 */
-			bool delRef()
-			{
-				if (m_isRoot == 1)
-				{
-					m_pLock->lock();
-					m_refCount--;
-					if (m_refCount == 0)
-					{
-						if ((void*)m_ptr == (void*)this)
-						{
-							OnPreRelease();
-							m_isDeleted = 0xFFFF5555;
-							delete m_ptr;
-						} else {
-							if (m_ptr != NULL)
-								delete m_ptr;
-							delete this;
-						}
-						return true;
-					}else if(m_refCount < 0)
-					{
-						printf("BUG DETECTED!\n");
-						assert(m_isRoot >= 0);
-					}
-					m_pLock->unlock();
-					return false;
-				}else if(m_isRoot == 0){
-					if (m_root_smartptr != NULL)
-						m_root_smartptr->delRef();
-					return false;
-				}else{
-					printf("BUG DETECTED!\n");
-					assert(m_isRoot >= 0);
-				}
-				return false;
-			}
-			
-			int getRefCount()
-			{
-				if (m_root_smartptr != NULL)
-					return m_root_smartptr->getRefCount();
-				else
-					return m_refCount;
 			}
 
 		public:
 			explicit SmartPointer()
-				: m_isRoot(0)
-				, m_ptr(NULL)
-				, m_root_smartptr(NULL)
-				, m_pLock(NULL)
-				, m_refCount(0)
 			{
-			}
-		
-			template <typename U>
-			SmartPointer(U* p)
-				: m_isRoot(0)
-				, m_ptr(NULL)
-				, m_root_smartptr(NULL)
-				, m_pLock(NULL)
-				, m_refCount(0)
-			{
-				setPointerOtherPtr(p, true);
+				_constructor();
 			}
 
-			SmartPointer(T* p)
-				: m_isRoot(0)
-				, m_ptr(NULL)
-				, m_root_smartptr(NULL)
-				, m_pLock(NULL)
-				, m_refCount(0)
+			int addRef()
 			{
-				setPointerSamePtr(p, true);
-			}
-
-			// Copy constructor.
-			SmartPointer(const SmartPointer<T>& refObj)
-				: m_isRoot(0)
-				, m_ptr(NULL)
-				, m_root_smartptr(NULL)
-				, m_pLock(NULL)
-				, m_refCount(0)
-			{
-				m_root_smartptr = refObj.m_root_smartptr;
-				if (m_root_smartptr != NULL)
+				if (m_rootManager)
 				{
-					m_ptr = m_root_smartptr->m_ptr;
-					m_root_smartptr->addRef();
+					return m_rootManager->refcnt.incget();
 				}
+				return 0;
+			}
+
+			int delRef()
+			{
+				if (m_rootManager)
+				{
+					int refcnt = m_rootManager->refcnt.decget();
+					if (refcnt == 0)
+					{
+						m_rootManager->destroy();
+						delete m_rootManager;
+						m_rootManager = NULL;
+						m_ptr = NULL;
+					}
+				}
+				return 0;
+			}
+
+			template<class U, class Deleter>
+			explicit SmartPointer(U* ptr, Deleter d)
+			{
+				_constructor();
+				setPointer<U, Deleter>(ptr, d);
+			}
+
+			template<class U>
+			SmartPointer(U* ptr)
+			{
+				_constructor();
+				setPointer<U, DefaultDeleter<U> >(ptr, DefaultDeleter<U>());
+			}
+
+			template<class U>
+			void operator=(U* ptr)
+			{
+				setPointer<U, DefaultDeleter<U> >(ptr, DefaultDeleter<U>());
+			}
+
+			void operator=(T* ptr)
+			{
+				setPointer<T, DefaultDeleter<T> >(ptr, DefaultDeleter<T>());
+			}
+
+			SmartPointer(const SmartPointer& _ref)
+			{
+				copyFrom(_ref);
+				addRef();
+			}
+
+			template<class U>
+			SmartPointer(const SmartPointer<U>& _ref)
+			{
+				copyFrom(_ref);
+				addRef();
+			}
+
+			template<class U>
+			void operator=(const SmartPointer<U>& _ref)
+			{
+				delRef();
+				_constructor();
+				copyFrom(_ref);
+				addRef();
 			}
 
 #if (__cplusplus >= 201103) || (defined(HAS_MOVE_SEMANTICS) && HAS_MOVE_SEMANTICS == 1)
-			// Move constructor
-			explicit SmartPointer(SmartPointer<T> &&refObj)
-				: m_isRoot(0)
-				, m_ptr(NULL)
-				, m_root_smartptr(NULL)
-				, m_pLock(NULL)
-				, m_refCount(0)
+			explicit SmartPointer(SmartPointer&& _ref)
 			{
-				m_root_smartptr = refObj.m_root_smartptr;
-				if (m_root_smartptr != NULL)
-				{
-					m_ptr = m_root_smartptr->m_ptr;
-					m_root_smartptr->addRef();
-				}
+				m_ptr = _ref->m_ptr;
+				m_rootManager = _ref->m_rootManager;
+				_ref->m_ptr = NULL;
+				_ref->m_rootManager = NULL;
 			}
 #endif
-
+				
 			~SmartPointer()
 			{
-				if (m_isRoot == 0)
+				delRef();
+			}
+
+			int getRefCnt()
+			{
+				if (m_rootManager)
 				{
-					delRef();
-				}else if(m_isRoot != 1)
-				{
-					printf("BUG DETECTED!\n");
+					return m_rootManager->refcnt.get();
 				}
-				if (m_pLock != NULL)
-				{
-					delete m_pLock;
-					m_pLock = NULL;
-				}
+				return 0;
 			}
 
-			T* operator->() const
-			{
-				return m_ptr;
-			}
-
-			/*
-			T& operator *() const
-			{
-				return *m_ptr;
-			}
-			*/
-
-			T* getPtr() const
-			{
-				return m_ptr;
-			}
-
-			template <typename U>
-			SmartPointer<T>& operator=(U* p)
-			{
-				setPointerOtherPtr(p);
-				return *this;
-			}
-
-			SmartPointer<T>& operator=(T* p)
-			{
-				setPointerSamePtr(p);
-				return *this;
-			}
-			
-			/*
-			SmartPointer<T>& operator=(const SmartPointer<T>& refObj)
-			{
-			if(m_root_smartptr != NULL)
-			m_root_smartptr->delRef();
-			m_root_smartptr = refObj.m_root_smartptr;
-			if(m_root_smartptr != NULL)
-			{
-			m_ptr = m_root_smartptr->m_ptr;
-			m_root_smartptr->addRef();
-			}
-			return *this;
-			}
-			*/
-
-			void operator=(const SmartPointer<T>& refObj)
-			{
-				if (m_root_smartptr != NULL)
-					m_root_smartptr->delRef();
-				m_root_smartptr = refObj.m_root_smartptr;
-				if (m_root_smartptr != NULL)
-				{
-					m_ptr = m_root_smartptr->m_ptr;
-					m_root_smartptr->addRef();
-				}
-			}
-
-			bool operator!() const
-			{
-				return (m_ptr == NULL);
-			}
-
-			bool operator==(SmartPointer<T> p) const
-			{
-				return m_ptr == p.m_ptr;
-			}
-
-			bool operator!=(SmartPointer<T> p) const
-			{
-				return m_ptr != p.m_ptr;
-			}
-
-			bool operator==(T* p) const
-			{
-				return m_ptr == p;
-			}
-
-			bool operator!=(T* p) const
-			{
-				return m_ptr != p;
-			}
-
-			SmartPointer<T> *detach()
-			{
-				if (m_root_smartptr != NULL)
-					m_root_smartptr->addRef();
-				return m_root_smartptr;
-			}
-
-			void attach(SmartPointer<T> *p)
-			{
-				if (m_root_smartptr != NULL)
-					m_root_smartptr->delRef();
-				m_root_smartptr = p;
-				if (m_root_smartptr != NULL)
-					m_ptr = m_root_smartptr->m_ptr;
-			}
+			T* operator->() const { return m_ptr; }
+			T& operator*() const { return *m_ptr; }
 		};
 }
 
