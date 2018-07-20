@@ -15,14 +15,18 @@
 #include <unistd.h>
 #include <string.h>
 #endif
+#include <exception>
 
 namespace JsCPPUtils
 {
 #if defined(JSCUTILS_OS_WINDOWS)
 	Lockable::Lockable()
 	{
-		m_ownertid = 0;
-		::InitializeCriticalSectionAndSpinCount(&m_cs, 5000);
+		if (!::InitializeCriticalSectionAndSpinCount(&m_cs, 5000))
+		{
+			DWORD dwErr = ::GetLastError();
+			throw std::exception("InitializeCriticalSectionAndSpinCount failed: ", dwErr);
+		}
 	}
 
 	Lockable::~Lockable()
@@ -82,7 +86,19 @@ namespace JsCPPUtils
 	
 	LockableRW::LockableRW()
 	{
+		HMODULE hModule = LoadLibrary(_T("KERNEL32.DLL"));
 		m_syslock = 0;
+
+		m_fnInitializeSRWLock = (fnInitializeSRWLock_t)GetProcAddress(hModule, "InitializeSRWLock");
+		m_fnAcquireSRWLockExclusive = (fnInitializeSRWLock_t)GetProcAddress(hModule, "AcquireSRWLockExclusive");
+		m_fnAcquireSRWLockShared = (fnInitializeSRWLock_t)GetProcAddress(hModule, "AcquireSRWLockShared");
+		m_fnReleaseSRWLockExclusive = (fnInitializeSRWLock_t)GetProcAddress(hModule, "ReleaseSRWLockExclusive");
+		m_fnReleaseSRWLockShared = (fnInitializeSRWLock_t)GetProcAddress(hModule, "ReleaseSRWLockShared");
+
+		if (m_fnInitializeSRWLock)
+		{
+			m_fnInitializeSRWLock((PVOID*)&m_srwlock);
+		}
 	}
 	
 	LockableRW::~LockableRW()
@@ -92,6 +108,12 @@ namespace JsCPPUtils
 	
 	int LockableRW::writelock() const
 	{
+		if (m_fnInitializeSRWLock)
+		{
+			m_fnAcquireSRWLockExclusive((PVOID*)&m_srwlock);
+			return 1;
+		}
+
 		while (true)
 		{
 			while (m_syslock & LF_WRITE_MASK)
@@ -109,12 +131,24 @@ namespace JsCPPUtils
 	
 	int LockableRW::writeunlock() const
 	{
+		if (m_fnInitializeSRWLock)
+		{
+			m_fnReleaseSRWLockExclusive((PVOID*)&m_srwlock);
+			return 1;
+		}
+
 		::InterlockedExchangeAdd((volatile LONG*)&m_syslock, -LF_WRITE_FLAG);
 		return 1;
 	}
 	
 	int LockableRW::readlock() const
 	{
+		if (m_fnInitializeSRWLock)
+		{
+			m_fnAcquireSRWLockShared((PVOID*)&m_srwlock);
+			return 1;
+		}
+
 		while (1)
 		{
 			while (m_syslock & LF_WRITE_MASK)
@@ -130,6 +164,12 @@ namespace JsCPPUtils
 	
 	int LockableRW::readunlock() const
 	{
+		if (m_fnInitializeSRWLock)
+		{
+			m_fnReleaseSRWLockShared((PVOID*)&m_srwlock);
+			return 1;
+		}
+
 		::InterlockedDecrement((volatile LONG*)&m_syslock);
 		return 1;
 	}

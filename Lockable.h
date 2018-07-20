@@ -79,7 +79,23 @@ namespace JsCPPUtils
 			LF_READ_MASK  = 0x000FFFFF ///< 하위 20비트를 readlock을 위한 플래그로 사용한다.
 		};
 #if defined(JSCUTILS_OS_WINDOWS)
+		typedef VOID(WINAPI *fnInitializeSRWLock_t)(__out  PVOID *SRWLock);
+		typedef VOID(WINAPI *fnAcquireSRWLockExclusive_t)(__inout  PVOID *SRWLock);
+		typedef VOID(WINAPI *fnAcquireSRWLockShared_t)(__inout  PVOID *SRWLock);
+		typedef VOID(WINAPI *fnReleaseSRWLockExclusive_t)(__inout  PVOID *SRWLock);
+		typedef VOID(WINAPI *fnReleaseSRWLockShared_t)(__inout  PVOID *SRWLock);
+
+		fnInitializeSRWLock_t m_fnInitializeSRWLock;
+		fnAcquireSRWLockExclusive_t m_fnAcquireSRWLockExclusive;
+		fnAcquireSRWLockShared_t m_fnAcquireSRWLockShared;
+		fnReleaseSRWLockExclusive_t m_fnReleaseSRWLockExclusive;
+		fnReleaseSRWLockShared_t m_fnReleaseSRWLockShared;
 		volatile LONG m_syslock;
+#ifdef SRWLOCK_INIT
+		SRWLOCK m_srwlock;
+#else
+		PVOID m_srwlock;
+#endif
 #elif defined(JSCUTILS_OS_LINUX)
 		pthread_rwlock_t m_syslock;
 #endif
@@ -93,6 +109,6 @@ namespace JsCPPUtils
 		int readunlock() const;
 	};
 
-}
+};
 
 #endif
