@@ -17,7 +17,8 @@
 
 #if defined(__linux__)
 
-#define JSCUTILS_OS_LINUX
+#define JSCUTILS_OS_LINUX 2
+#define JSCUTILS_PLATFORM JSCUTILS_OS_LINUX
 
 #define JSCUTILS_TYPE_FLAG int
 #define JSCUTILS_TYPE_DEFCHAR char
@@ -30,13 +31,16 @@
 
 #elif defined(_WIN32) || defined(_WIN64)
 
-#define JSCUTILS_OS_WINDOWS
+#define JSCUTILS_OS_WINDOWS 1
+#define JSCUTILS_PLATFORM JSCUTILS_OS_WINDOWS
 
 #include <tchar.h>
 
 #define JSCUTILS_TYPE_FLAG DWORD
 #define JSCUTILS_TYPE_DEFCHAR TCHAR
 #define JSCUTILS_TYPE_ERRNO errno_t
+
+#define JSCUTILS_HAS_TIME_H 1
 
 #define likely(x)       (x)
 #define unlikely(x)     (x)
