@@ -22,7 +22,7 @@
 
 #include "AtomicNum.h"
 
-/******************** Loki begin ********************/
+ /******************** Loki begin ********************/
 
 #ifndef __JSCPPUTILS_PRIVATE_LOKI_SUPERCLASSCHECKER
 #define __JSCPPUTILS_PRIVATE_LOKI_SUPERCLASSCHECKER
@@ -34,224 +34,317 @@ namespace _JsCPPUtils_private
 		namespace Private
 		{
 			template <class T, class U>
-				struct ConversionHelper
-				{
-					typedef char Small;
-					struct Big { char dummy[2]; };
-					static Big   Test(...);
-					static Small Test(U);
-					static T MakeT();
-				};
+			struct ConversionHelper
+			{
+				typedef char Small;
+				struct Big { char dummy[2]; };
+				static Big   Test(...);
+				static Small Test(U);
+				static T MakeT();
+			};
 		}
 		template <class T, class U>
-			struct Conversion
-			{
-				typedef Private::ConversionHelper<T, U> H;
-				enum {exists = sizeof(typename H::Small) == sizeof((H::Test(H::MakeT())))};
-				enum {exists2Way = exists && Conversion < U, T > ::exists};
-				enum {sameType = false};
-			};
+		struct Conversion
+		{
+			typedef Private::ConversionHelper<T, U> H;
+			enum { exists = sizeof(typename H::Small) == sizeof((H::Test(H::MakeT()))) };
+			enum { exists2Way = exists && Conversion < U, T > ::exists };
+			enum { sameType = false };
+		};
 
 		template <class T>
-			struct Conversion<T, T>    
-			{
-				enum {exists = 1, exists2Way = 1, sameType = 1};
-			};
+		struct Conversion<T, T>
+		{
+			enum { exists = 1, exists2Way = 1, sameType = 1 };
+		};
 
 		template <class T>
-			struct Conversion<void, T>    
-			{
-				enum {exists = 0, exists2Way = 0, sameType = 0};
-			};
+		struct Conversion<void, T>
+		{
+			enum { exists = 0, exists2Way = 0, sameType = 0 };
+		};
 
 		template <class T>
-			struct Conversion<T, void>    
-			{
-				enum {exists = 0, exists2Way = 0, sameType = 0};
-			};
+		struct Conversion<T, void>
+		{
+			enum { exists = 0, exists2Way = 0, sameType = 0 };
+		};
 
 		template <>
-			struct Conversion<void, void>    
-			{
-			public:
-				enum {exists = 1, exists2Way = 1, sameType = 1};
-			};
-	
-	
+		struct Conversion<void, void>
+		{
+		public:
+			enum { exists = 1, exists2Way = 1, sameType = 1 };
+		};
+
+
 		template <class T, class U>
-			struct SuperSubclass
-			{
-				enum {value = (::_JsCPPUtils_private::Loki::Conversion<const volatile U*, const volatile T*>::exists &&
-							  !::_JsCPPUtils_private::Loki::Conversion<const volatile T*, const volatile void*>::sameType)
-				};
-
-									  // Dummy enum to make sure that both classes are fully defined.
-				enum{dontUseWithIncompleteTypes = (sizeof(T) == sizeof(U))};
+		struct SuperSubclass
+		{
+			enum {
+				value = (::_JsCPPUtils_private::Loki::Conversion<const volatile U*, const volatile T*>::exists &&
+				!::_JsCPPUtils_private::Loki::Conversion<const volatile T*, const volatile void*>::sameType)
 			};
+
+			// Dummy enum to make sure that both classes are fully defined.
+			enum { dontUseWithIncompleteTypes = (sizeof(T) == sizeof(U)) };
+		};
 
 		template <>
-			struct SuperSubclass<void, void> 
-			{
-				enum {value = false};
-			};
+		struct SuperSubclass<void, void>
+		{
+			enum { value = false };
+		};
 
 		template <class U>
-			struct SuperSubclass<void, U> 
-			{
-				enum {value = (::_JsCPPUtils_private::Loki::Conversion<const volatile U*, const volatile void*>::exists &&
-							  !::_JsCPPUtils_private::Loki::Conversion<const volatile void*, const volatile void*>::sameType)
-				};
-
-									  // Dummy enum to make sure that both classes are fully defined.
-				enum{dontUseWithIncompleteTypes = (0 == sizeof(U))};
+		struct SuperSubclass<void, U>
+		{
+			enum {
+				value = (::_JsCPPUtils_private::Loki::Conversion<const volatile U*, const volatile void*>::exists &&
+				!::_JsCPPUtils_private::Loki::Conversion<const volatile void*, const volatile void*>::sameType)
 			};
+
+			// Dummy enum to make sure that both classes are fully defined.
+			enum { dontUseWithIncompleteTypes = (0 == sizeof(U)) };
+		};
 
 		template <class T>
-			struct SuperSubclass<T, void> 
-			{
-				enum {value = (::_JsCPPUtils_private::Loki::Conversion<const volatile void*, const volatile T*>::exists &&
-							  !::_JsCPPUtils_private::Loki::Conversion<const volatile T*, const volatile void*>::sameType)
-				};
-
-									  // Dummy enum to make sure that both classes are fully defined.
-				enum{dontUseWithIncompleteTypes = (sizeof(T) == 0)};
+		struct SuperSubclass<T, void>
+		{
+			enum {
+				value = (::_JsCPPUtils_private::Loki::Conversion<const volatile void*, const volatile T*>::exists &&
+				!::_JsCPPUtils_private::Loki::Conversion<const volatile T*, const volatile void*>::sameType)
 			};
+
+			// Dummy enum to make sure that both classes are fully defined.
+			enum { dontUseWithIncompleteTypes = (sizeof(T) == 0) };
+		};
 
 		template<class T, class U>
-			struct SuperSubclassStrict
-			{
-				enum {
-					value = (::_JsCPPUtils_private::Loki::Conversion<const volatile U*, const volatile T*>::exists &&
-							 !::_JsCPPUtils_private::Loki::Conversion<const volatile T*, const volatile void*>::sameType &&
-							 !::_JsCPPUtils_private::Loki::Conversion<const volatile T*, const volatile U*>::sameType)
-				};
-
-									 // Dummy enum to make sure that both classes are fully defined.
-				enum{dontUseWithIncompleteTypes = (sizeof(T) == sizeof(U))};
+		struct SuperSubclassStrict
+		{
+			enum {
+				value = (::_JsCPPUtils_private::Loki::Conversion<const volatile U*, const volatile T*>::exists &&
+				!::_JsCPPUtils_private::Loki::Conversion<const volatile T*, const volatile void*>::sameType &&
+					!::_JsCPPUtils_private::Loki::Conversion<const volatile T*, const volatile U*>::sameType)
 			};
+
+			// Dummy enum to make sure that both classes are fully defined.
+			enum { dontUseWithIncompleteTypes = (sizeof(T) == sizeof(U)) };
+		};
 
 		template<>
-			struct SuperSubclassStrict<void, void> 
-			{
-				enum {value = false};
-			};
+		struct SuperSubclassStrict<void, void>
+		{
+			enum { value = false };
+		};
 
 		template<class U>
-			struct SuperSubclassStrict<void, U> 
-			{
-				enum {value = (::_JsCPPUtils_private::Loki::Conversion<const volatile U*, const volatile void*>::exists &&
-							 !::_JsCPPUtils_private::Loki::Conversion<const volatile void*, const volatile void*>::sameType &&
-							 !::_JsCPPUtils_private::Loki::Conversion<const volatile void*, const volatile U*>::sameType)
-				};
-
-									 // Dummy enum to make sure that both classes are fully defined.
-				enum{dontUseWithIncompleteTypes = (0 == sizeof(U))};
+		struct SuperSubclassStrict<void, U>
+		{
+			enum {
+				value = (::_JsCPPUtils_private::Loki::Conversion<const volatile U*, const volatile void*>::exists &&
+				!::_JsCPPUtils_private::Loki::Conversion<const volatile void*, const volatile void*>::sameType &&
+					!::_JsCPPUtils_private::Loki::Conversion<const volatile void*, const volatile U*>::sameType)
 			};
+
+			// Dummy enum to make sure that both classes are fully defined.
+			enum { dontUseWithIncompleteTypes = (0 == sizeof(U)) };
+		};
 
 		template<class T>
-			struct SuperSubclassStrict<T, void> 
-			{
-				enum {value = (::_JsCPPUtils_private::Loki::Conversion<const volatile void*, const volatile T*>::exists &&
-							 !::_JsCPPUtils_private::Loki::Conversion<const volatile T*, const volatile void*>::sameType &&
-							 !::_JsCPPUtils_private::Loki::Conversion<const volatile T*, const volatile void*>::sameType)
-				};
-
-									 // Dummy enum to make sure that both classes are fully defined.
-				enum{dontUseWithIncompleteTypes = (sizeof(T) == 0)};
+		struct SuperSubclassStrict<T, void>
+		{
+			enum {
+				value = (::_JsCPPUtils_private::Loki::Conversion<const volatile void*, const volatile T*>::exists &&
+				!::_JsCPPUtils_private::Loki::Conversion<const volatile T*, const volatile void*>::sameType &&
+					!::_JsCPPUtils_private::Loki::Conversion<const volatile T*, const volatile void*>::sameType)
 			};
+
+			// Dummy enum to make sure that both classes are fully defined.
+			enum { dontUseWithIncompleteTypes = (sizeof(T) == 0) };
+		};
 
 	} //namespace Loki
 
-/*
-#define LOKI_SUPERSUBCLASS(T, U) \
-        ::_JsCPPUtils_private::Loki::SuperSubclass<T,U>::value
+	  /*
+	  #define LOKI_SUPERSUBCLASS(T, U) \
+	  ::_JsCPPUtils_private::Loki::SuperSubclass<T,U>::value
 
-#define LOKI_SUPERSUBCLASS_STRICT(T, U) \
-        ::_JsCPPUtils_private::Loki::SuperSubclassStrict<T,U>::value
-*/
+	  #define LOKI_SUPERSUBCLASS_STRICT(T, U) \
+	  ::_JsCPPUtils_private::Loki::SuperSubclassStrict<T,U>::value
+	  */
 }
 
 #endif /* __JSCPPUTILS_PRIVATE_LOKI_SUPERCLASSCHECKER */
 
 /******************** Loki end ********************/
 
+
 namespace _JsCPPUtils_private
 {
+	class SmartPointerRootManager;
+}
+
+namespace JsCPPUtils
+{
+	class SmartPointerRefCounter
+	{
+	private:
+		friend class ::_JsCPPUtils_private::SmartPointerRootManager;
+		JsCPPUtils::AtomicNum<int> refcnt;
+	};
+}
+
+namespace _JsCPPUtils_private
+{
+	class SmartPointerRootManager
+	{
+	public:
+		void *bkptr;
+		JsCPPUtils::AtomicNum<int> refcnt;
+		JsCPPUtils::AtomicNum<int> *prefcnt;
+		SmartPointerRootManager(void *ptr) : refcnt(0), bkptr(ptr) {}
+		virtual void destroy() = 0;
+		virtual ~SmartPointerRootManager() {};
+		void setRefCntPtr(::JsCPPUtils::SmartPointerRefCounter *pSmartRefcnt)
+		{
+			prefcnt = &pSmartRefcnt->refcnt;
+		}
+	};
+
+	template <class U, class Deleter>
+	class SmartPointerRootManagerImpl : public SmartPointerRootManager
+	{
+	private:
+		U *ptr;
+		Deleter d;
+
+	public:
+		SmartPointerRootManagerImpl(U *_ptr, Deleter _deleter) :
+			SmartPointerRootManager(_ptr)
+		{
+			this->ptr = _ptr;
+			this->d = _deleter;
+
+			this->prefcnt = &refcnt;
+
+			if (::_JsCPPUtils_private::Loki::SuperSubclassStrict<::JsCPPUtils::SmartPointerRefCounter, U>::value)
+			{
+				setRefCntPtr((::JsCPPUtils::SmartPointerRefCounter*)_ptr);
+			}
+
+			this->prefcnt->incget();
+		}
+
+		void destroy() {
+			d(this->ptr);
+			this->ptr = NULL;
+		}
+
+		virtual ~SmartPointerRootManagerImpl() { }
+	};
+
 	class SmartPointerBase
 	{
 	protected:
-		class RootManager
-		{
+		class FloatingObject {
 		public:
-			JsCPPUtils::AtomicNum<int> refcnt;
-			RootManager() : refcnt(1) {}
-			virtual void destroy() = 0;
-			virtual ~RootManager() {};
+			SmartPointerRootManager *m_rootManager;
+			void* m_ptr;
+
+			FloatingObject(SmartPointerRootManager *rootManager, void *ptr) :
+				m_rootManager(rootManager), m_ptr(ptr) {}
+			~FloatingObject(){}
 		};
 
-		template <class U, class Deleter>
-		class RootManagerImpl : public RootManager
-		{
-		private:
-			U *ptr;
-			Deleter d;
-
-		public:
-			RootManagerImpl(U *_ptr, Deleter _deleter) {
-				this->ptr = _ptr;
-				this->d = _deleter;
-			}
-
-			void destroy() {
-				d(this->ptr);
-				this->ptr = NULL;
-			}
-
-			virtual ~RootManagerImpl() { }
-		};
-
-		template <class U>
-		class DefaultDeleter
-		{
-		public:
-			void operator()(U *ptr) const
-			{
-				delete ptr;
-			}
-		};
-
-		RootManager *m_rootManager;
+		SmartPointerRootManager *m_rootManager;
 		void* m_ptr;
 
-		void copyFrom(const SmartPointerBase &_ref)
+		void _constructor()
 		{
-			m_rootManager = _ref.m_rootManager;
-			m_ptr = _ref.m_ptr;
+			m_rootManager = NULL;
+			m_ptr = NULL;
 		}
+
+		void copyFrom(const SmartPointerBase &_ref);
+
+		template <class T, class U>
+		void copyFromTU(const SmartPointerBase &_ref)
+		{
+			U * pDerived(reinterpret_cast<U *>(4));
+			T * pBase(pDerived);
+			size_t offset = reinterpret_cast<unsigned int>(pBase) - reinterpret_cast<unsigned int>(pDerived);
+
+			m_rootManager = _ref.m_rootManager;
+			m_ptr = ((char*)_ref.m_ptr + offset);
+		}
+
+	public:
+		int addRef();
+		int delRef(bool isSelfDestroy = false);
+
+		virtual void *detach()
+		{
+			FloatingObject *fobj = new FloatingObject(m_rootManager, m_ptr);
+			addRef();
+			return fobj;
+		}
+		virtual void attach(void *ptr)
+		{
+			FloatingObject *fobj = (FloatingObject*)ptr;
+			delRef();
+			_constructor();
+			m_rootManager = (SmartPointerRootManager*)fobj->m_rootManager;
+			m_ptr = fobj->m_ptr;
+			delete fobj;
+		}
+
+		int getRefCount();
 	};
 }
 
 namespace JsCPPUtils
 {
+	template <class U>
+	class DefaultDeleter
+	{
+	public:
+		void operator()(U *ptr) const
+		{
+			delete ptr;
+		}
+	};
+
 	template <class T>
 		class SmartPointer : public ::_JsCPPUtils_private::SmartPointerBase
 		{
 		private:
-			void _constructor()
-			{
-				m_rootManager = NULL;
-				m_ptr = NULL;
-			}
+			T *ptr;
 
 			template <class U, class Deleter>
 			void setPointer(U* ptr, Deleter d)
 			{
-				delRef();
+				if (ptr == this->m_ptr)
+					return;
+
+				if (!ptr && ((char*)this > (char*)this->m_ptr) && (((char*)this->m_ptr + sizeof(T)) > (char*)this))
+				{
+					if(delRef(true) == 0)
+						return;
+				} else {
+					delRef();
+				}
 				_constructor();
 				if (ptr)
 				{
-					m_rootManager = new RootManagerImpl<U, Deleter>(ptr, d);
-					m_ptr = ptr;
+					U * pDerived(reinterpret_cast<U *>(4));
+					T * pBase(pDerived);
+					size_t offset = reinterpret_cast<unsigned int>(pBase) - reinterpret_cast<unsigned int>(pDerived);
+
+					m_rootManager = new ::_JsCPPUtils_private::SmartPointerRootManagerImpl<U, Deleter>(ptr, d);
+					m_ptr = ((char*)ptr + offset);
+					this->ptr = (T*)m_ptr;
 				}
 			}
 
@@ -259,31 +352,6 @@ namespace JsCPPUtils
 			explicit SmartPointer()
 			{
 				_constructor();
-			}
-
-			int addRef()
-			{
-				if (m_rootManager)
-				{
-					return m_rootManager->refcnt.incget();
-				}
-				return 0;
-			}
-
-			int delRef()
-			{
-				if (m_rootManager)
-				{
-					int refcnt = m_rootManager->refcnt.decget();
-					if (refcnt == 0)
-					{
-						m_rootManager->destroy();
-						delete m_rootManager;
-						m_rootManager = NULL;
-						m_ptr = NULL;
-					}
-				}
-				return 0;
 			}
 
 			template<class U, class Deleter>
@@ -300,6 +368,11 @@ namespace JsCPPUtils
 				setPointer<U, DefaultDeleter<U> >(ptr, DefaultDeleter<U>());
 			}
 
+			SmartPointer(int maybeNull)
+			{
+				_constructor();
+			}
+
 			template<class U>
 			void operator=(U* ptr)
 			{
@@ -314,13 +387,15 @@ namespace JsCPPUtils
 			SmartPointer(const SmartPointer& _ref)
 			{
 				copyFrom(_ref);
+				this->ptr = (T*)m_ptr;
 				addRef();
 			}
 
 			template<class U>
 			SmartPointer(const SmartPointer<U>& _ref)
 			{
-				copyFrom(_ref);
+				copyFromTU<T, U>(_ref);
+				this->ptr = (T*)m_ptr;
 				addRef();
 			}
 
@@ -329,7 +404,17 @@ namespace JsCPPUtils
 			{
 				delRef();
 				_constructor();
+				copyFromTU<T, U>(_ref);
+				this->ptr = (T*)m_ptr;
+				addRef();
+			}
+
+			void operator=(const SmartPointer<T>& _ref)
+			{
+				delRef();
+				_constructor();
 				copyFrom(_ref);
+				this->ptr = (T*)m_ptr;
 				addRef();
 			}
 
@@ -337,6 +422,7 @@ namespace JsCPPUtils
 			explicit SmartPointer(SmartPointer&& _ref)
 			{
 				m_ptr = _ref->m_ptr;
+				this->ptr = (T*)m_ptr;
 				m_rootManager = _ref->m_rootManager;
 				_ref->m_ptr = NULL;
 				_ref->m_rootManager = NULL;
@@ -348,17 +434,24 @@ namespace JsCPPUtils
 				delRef();
 			}
 
-			int getRefCnt()
-			{
-				if (m_rootManager)
-				{
-					return m_rootManager->refcnt.get();
-				}
-				return 0;
-			}
+			T* operator->() const { return (T*)m_ptr; }
+			T& operator*() const { return *(T*)m_ptr; }
+			T* getPtr() const { return (T*)m_ptr; }
 
-			T* operator->() const { return m_ptr; }
-			T& operator*() const { return *m_ptr; }
+			bool operator==(void *x) const { return m_ptr == x; }
+			bool operator!=(void *x) const { return m_ptr != x; }
+			bool operator!() const { return (m_ptr == NULL); }
+
+			template<class U>
+			bool operator==(const SmartPointer<U>& x) const { return m_ptr == x.m_ptr; }
+			template<class U>
+			bool operator!=(const SmartPointer<U>& x) const { return m_ptr != x.m_ptr; }
+
+			void attach(void *ptr)
+			{
+				__super::attach(ptr);
+				this->ptr = (T*)m_ptr;
+			}
 		};
 }
 
