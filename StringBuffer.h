@@ -394,7 +394,7 @@ namespace JsCPPUtils
 			append(conv_flt);
 		}
 
-		void appendHexBytes(unsigned char *pdata, int length, bool uppercase)
+		void appendHexBytes(const unsigned char *pdata, int length, bool uppercase)
 		{
 			static const char cszHex_lower[] = "0123456789abcdef";
 			static const char cszHex_upper[] = "0123456789ABCDEF";
@@ -414,7 +414,7 @@ namespace JsCPPUtils
 			}
 		}
 
-		void appendHexBytes(unsigned char *pdata, int length)
+		void appendHexBytes(const unsigned char *pdata, int length)
 		{
 			appendHexBytes(pdata, length, false);
 		}
