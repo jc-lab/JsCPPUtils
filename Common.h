@@ -34,6 +34,8 @@
 #define likely(x)       __builtin_expect((x),1)
 #define unlikely(x)     __builtin_expect((x),0)
 
+#define JSCPPUTILS_DEPRECATED(TEXT)
+
 #include <stdint.h>
 
 #elif defined(_WIN32) || defined(_WIN64)
@@ -55,6 +57,8 @@
 
 #define likely(x)       (x)
 #define unlikely(x)     (x)
+
+#define JSCPPUTILS_DEPRECATED(TEXT) __declspec(deprecated(TEXT))
 
 #define _JSCUTILS_USE_CUSTOM_ALLOCATOR 1
 typedef void* (__cdecl *JsCUtils_fnMalloc_t)(size_t size);
