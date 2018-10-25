@@ -19,6 +19,19 @@
 #include <windows.h>
 #include <intrin.h>
 #include <typeinfo>
+#include <new>
+
+#ifdef new
+#pragma push_macro("new")
+#undef new
+#define SRC_77D1AD00DE4111E78F1A0800200C9A66_DEFINED_OLD_NEW 1
+#endif
+
+#ifdef delete
+#pragma push_macro("delete")
+#undef delete
+#define SRC_77D1AD00DE4111E78F1A0800200C9A66_DEFINED_OLD_DELETE 1
+#endif
 
 namespace JsCPPUtils
 {
@@ -521,7 +534,7 @@ namespace JsCPPUtils
 				if (m_custom_malloc)
 				{
 					m_pimpl = (basic_AtomicNumSYS64<T>*)m_custom_malloc(sizeof(basic_AtomicNumSYS64<T>));
-					new (m_pimpl) basic_AtomicNumSYS64<T>(initialvalue);
+					new(m_pimpl) basic_AtomicNumSYS64<T>(initialvalue);
 				}
 				else 
 					m_pimpl = new basic_AtomicNumSYS64<T>(initialvalue);
@@ -532,7 +545,7 @@ namespace JsCPPUtils
 				if (m_custom_malloc)
 				{
 					m_pimpl = (basic_AtomicNumSYS32<T>*)m_custom_malloc(sizeof(basic_AtomicNumSYS32<T>));
-					new (m_pimpl) basic_AtomicNumSYS32<T>(initialvalue);
+					new(m_pimpl) basic_AtomicNumSYS32<T>(initialvalue);
 				}
 				else
 					m_pimpl = new basic_AtomicNumSYS32<T>(initialvalue);
@@ -542,7 +555,7 @@ namespace JsCPPUtils
 				if (m_custom_malloc)
 				{
 					m_pimpl = (basic_AtomicNumMutex<T>*)m_custom_malloc(sizeof(basic_AtomicNumMutex<T>));
-					new (m_pimpl) basic_AtomicNumMutex<T>(initialvalue);
+					new(m_pimpl) basic_AtomicNumMutex<T>(initialvalue);
 				}
 				else
 					m_pimpl = new basic_AtomicNumMutex<T>(initialvalue);
@@ -725,8 +738,17 @@ namespace JsCPPUtils
 			return m_pimpl->operator<=(y);
 		}
 	};
-
-
 }
+
+#ifdef SRC_77D1AD00DE4111E78F1A0800200C9A66_DEFINED_OLD_NEW
+#undef SRC_77D1AD00DE4111E78F1A0800200C9A66_DEFINED_OLD_NEW
+#pragma pop_macro("new")
+#endif
+
+#ifdef SRC_77D1AD00DE4111E78F1A0800200C9A66_DEFINED_OLD_DELETE
+#undef SRC_77D1AD00DE4111E78F1A0800200C9A66_DEFINED_OLD_DELETE
+#pragma pop_macro("delete")
+#endif
+
 
 #endif
