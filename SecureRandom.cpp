@@ -51,11 +51,14 @@ namespace JsCPPUtils
 	
 	SecureRandom::SecureRandom()
 	{
-		uint32_t tseed[1] = {0};
+		uint32_t tseed[2] = {0};
 #if defined(JSCUTILS_HAS_TIME_H)
 		tseed[0] = (uint32_t)time(NULL);
 #endif
-		init(tseed, 1);
+#if defined(JSCUTILS_OS_WINDOWS)
+		tseed[1] = ::GetTickCount();
+#endif
+		init(tseed, 2);
 	}
 
 
@@ -110,10 +113,12 @@ namespace JsCPPUtils
 			m_state_data[i] = x * x;
 		}
 		
-		getSystemRandom((unsigned char*)sysrndbuf, sizeof(sysrndbuf));
-		for (i = 0; i < 16; i++)
+		if (getSystemRandom((unsigned char*)sysrndbuf, sizeof(sysrndbuf)))
 		{
-			m_state_data[i] ^= sysrndbuf[i];
+			for (i = 0; i < 16; i++)
+			{
+				m_state_data[i] ^= sysrndbuf[i];
+			}
 		}
 		
 		return retval;
