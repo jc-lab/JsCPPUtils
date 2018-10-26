@@ -15,11 +15,15 @@
 #ifndef __JSCPPUTILS_ATOMICNUM_H__
 #define __JSCPPUTILS_ATOMICNUM_H__
 
+#include "Common.h"
 #include "Lockable.h"
-#include <windows.h>
-#include <intrin.h>
 #include <typeinfo>
 #include <new>
+
+#if JSCUTILS_PLATFORM_ISWINDOWS()
+#include <windows.h>
+#include <intrin.h>
+#endif
 
 #ifdef new
 #pragma push_macro("new")
@@ -61,6 +65,7 @@ namespace JsCPPUtils
 		virtual bool operator<=(T y) const = 0;
 	};
 
+#if JSCUTILS_PLATFORM_ISWINDOWS()
 #if defined(WIN64) || defined(_WIN64)
 	template <typename T = LONGLONG>
 	class basic_AtomicNumSYS64 : public basic_AtomicNumAbstract<T>
@@ -321,8 +326,8 @@ namespace JsCPPUtils
 			return (tval <= y);
 		}
 	};
-
 //#endif
+#endif
 
 	template <typename T>
 	class basic_AtomicNumMutex : public basic_AtomicNumAbstract<T>, private JsCPPUtils::Lockable
@@ -561,16 +566,20 @@ namespace JsCPPUtils
 					m_pimpl = new basic_AtomicNumMutex<T>(initialvalue);
 			}
 #else
+#if JSCUTILS_PLATFORM_ISWINDOWS()
 #if defined(WIN64) || defined(_WIN64)
 			if(sizeof(T) <= 8)
 			{
 				m_pimpl = new basic_AtomicNumSYS64<T>(initialvalue);
-			}else
+				return ;
+			}
 #else
 			if(sizeof(T) <= 4)
 			{
 				m_pimpl = new basic_AtomicNumSYS32<T>(initialvalue);
-			}else
+				return ;
+			}
+#endif
 #endif
 			{
 				m_pimpl = new basic_AtomicNumMutex<T>(initialvalue);
@@ -690,12 +699,12 @@ namespace JsCPPUtils
 
 		void operator++()
 		{
-			m_pimpl->operator++(y);
+			m_pimpl->operator++();
 		}
 
 		void operator--()
 		{
-			m_pimpl->operator--(y);
+			m_pimpl->operator--();
 		}
 
 		void operator&=(T y)
