@@ -229,7 +229,7 @@ namespace _JsCPPUtils_private
 
 			this->prefcnt = &refcnt;
 
-			if (::_JsCPPUtils_private::Loki::SuperSubclassStrict<::JsCPPUtils::SmartPointerRefCounter, U>::value)
+			if (::_JsCPPUtils_private::Loki::SuperSubclassStrict< ::JsCPPUtils::SmartPointerRefCounter, U>::value)
 			{
 				setRefCntPtr((::JsCPPUtils::SmartPointerRefCounter*)_ptr);
 			}
@@ -274,7 +274,7 @@ namespace _JsCPPUtils_private
 		{
 			U * pDerived(reinterpret_cast<U *>(4));
 			T * pBase(pDerived);
-			size_t offset = reinterpret_cast<unsigned int>(pBase) - reinterpret_cast<unsigned int>(pDerived);
+			size_t offset = reinterpret_cast<intptr_t>(pBase) - reinterpret_cast<intptr_t>(pDerived);
 
 			m_rootManager = _ref.m_rootManager;
 			m_ptr = ((char*)_ref.m_ptr + offset);
@@ -320,6 +320,7 @@ namespace JsCPPUtils
 		class SmartPointer : public ::_JsCPPUtils_private::SmartPointerBase
 		{
 		private:
+			typedef::_JsCPPUtils_private::SmartPointerBase inherited;
 			T *ptr;
 
 			template <class U, class Deleter>
@@ -340,7 +341,7 @@ namespace JsCPPUtils
 				{
 					U * pDerived(reinterpret_cast<U *>(4));
 					T * pBase(pDerived);
-					size_t offset = reinterpret_cast<unsigned int>(pBase) - reinterpret_cast<unsigned int>(pDerived);
+					size_t offset = reinterpret_cast<intptr_t>(pBase) - reinterpret_cast<intptr_t>(pDerived);
 
 					m_rootManager = new ::_JsCPPUtils_private::SmartPointerRootManagerImpl<U, Deleter>(ptr, d);
 					m_ptr = ((char*)ptr + offset);
@@ -449,7 +450,7 @@ namespace JsCPPUtils
 
 			void attach(void *ptr)
 			{
-				__super::attach(ptr);
+				inherited::attach(ptr);
 				this->ptr = (T*)m_ptr;
 			}
 		};
