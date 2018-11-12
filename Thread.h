@@ -12,8 +12,8 @@
 #pragma once
 #endif
 
-#ifndef __JSCPPUTILS_JSTHREAD_H__
-#define __JSCPPUTILS_JSTHREAD_H__
+#ifndef __JSCPPUTILS_THREAD_H__
+#define __JSCPPUTILS_THREAD_H__
 
 #include "Common.h"
 
