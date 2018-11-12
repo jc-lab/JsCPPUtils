@@ -60,6 +60,8 @@ namespace JsCPPUtils {
 		void setMinDelayTime(int minDelayTime);
 		int getMinDelayTime();
 
+		virtual bool preCheckSchedule() { return true; }
+
 	private:
 		class WorkerThread : public Thread
 		{

@@ -96,32 +96,34 @@ namespace JsCPPUtils {
 		{
 			int delayTime;
 
-			timer->m_timerTaskQueueLock.lock();
-			for (std::list<TimerTaskInfo>::iterator iter = timer->m_timerTaskQueue.begin(); iter != timer->m_timerTaskQueue.end(); iter++)
-			{
-				int64_t curtime = Common::getTickCount();
-				if (iter->timetostart <= curtime)
+			if (timer->preCheckSchedule()) {
+				timer->m_timerTaskQueueLock.lock();
+				for (std::list<TimerTaskInfo>::iterator iter = timer->m_timerTaskQueue.begin(); iter != timer->m_timerTaskQueue.end(); iter++)
 				{
-					iter->timetostart = -1;
-					if (iter->schType == SCHTYPE_FIXEDRATE)
-						iter->lastexecutedtick = curtime;
-					iter->task->execute(iter->task.getPtr(), curtime);
-					if (iter->schType == SCHTYPE_FIXEDDELAY)
-						iter->lastexecutedtick = Common::getTickCount();
-				}
-				else {
-					int64_t exectime = (iter->lastexecutedtick + iter->period);
-					if (exectime <= curtime)
+					int64_t curtime = Common::getTickCount();
+					if (iter->timetostart <= curtime)
 					{
+						iter->timetostart = -1;
 						if (iter->schType == SCHTYPE_FIXEDRATE)
 							iter->lastexecutedtick = curtime;
 						iter->task->execute(iter->task.getPtr(), curtime);
 						if (iter->schType == SCHTYPE_FIXEDDELAY)
 							iter->lastexecutedtick = Common::getTickCount();
 					}
+					else {
+						int64_t exectime = (iter->lastexecutedtick + iter->period);
+						if (exectime <= curtime)
+						{
+							if (iter->schType == SCHTYPE_FIXEDRATE)
+								iter->lastexecutedtick = curtime;
+							iter->task->execute(iter->task.getPtr(), curtime);
+							if (iter->schType == SCHTYPE_FIXEDDELAY)
+								iter->lastexecutedtick = Common::getTickCount();
+						}
+					}
 				}
+				timer->m_timerTaskQueueLock.unlock();
 			}
-			timer->m_timerTaskQueueLock.unlock();
 
 			delayTime = timer->m_minDelayTime;
 			Sleep(delayTime);
