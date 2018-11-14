@@ -23,7 +23,9 @@ namespace _JsCPPUtils_private
 	{
 		if (m_rootManager)
 		{
-			return m_rootManager->prefcnt->incget();
+			if (!m_rootManager->bkptr)
+				return 0;
+			return m_rootManager->prefcnt->incget() - m_rootManager->pweakcount->get();
 		}
 		return 0;
 	}
@@ -34,16 +36,53 @@ namespace _JsCPPUtils_private
 		if (pRootManager)
 		{
 			int refcnt = pRootManager->prefcnt->decget();
-			if (refcnt == 0)
+			int weakcnt = pRootManager->pweakcount->get();
+			int remaincnt = refcnt - weakcnt;
+			if (remaincnt == 0)
 			{
 				pRootManager->destroy();
-				delete pRootManager;
+				if(refcnt == 0)
+					delete pRootManager;
 				if (isSelfDestroy)
 					return 0;
 				m_rootManager = NULL;
 				m_ptr = NULL;
 			}
-			return refcnt;
+			return remaincnt;
+		}
+		return 0;
+	}
+
+	int SmartPointerBase::addWeakRef()
+	{
+		if (m_rootManager)
+		{
+			if (!m_rootManager->bkptr)
+				return 0;
+			return m_rootManager->prefcnt->incget() - m_rootManager->pweakcount->incget();
+		}
+		return 0;
+	}
+
+	int SmartPointerBase::delWeakRef(bool isSelfDestroy)
+	{
+		SmartPointerRootManager * volatile pRootManager = m_rootManager;
+		if (pRootManager)
+		{
+			int refcnt = pRootManager->prefcnt->decget();
+			int weakcnt = pRootManager->pweakcount->decget();
+			int remaincnt = refcnt - weakcnt;
+			if (remaincnt == 0)
+			{
+				pRootManager->destroy();
+				if (refcnt == 0)
+					delete pRootManager;
+				if (isSelfDestroy)
+					return 0;
+				m_rootManager = NULL;
+				m_ptr = NULL;
+			}
+			return remaincnt;
 		}
 		return 0;
 	}

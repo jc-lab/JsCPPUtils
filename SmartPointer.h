@@ -193,6 +193,10 @@ namespace JsCPPUtils
 	private:
 		friend class ::_JsCPPUtils_private::SmartPointerRootManager;
 		JsCPPUtils::AtomicNum<int> refcnt;
+		JsCPPUtils::AtomicNum<int> weakcount;
+	public:
+		SmartPointerRefCounter() : refcnt(0) { }
+		virtual ~SmartPointerRefCounter() { }
 	};
 }
 
@@ -201,15 +205,23 @@ namespace _JsCPPUtils_private
 	class SmartPointerRootManager
 	{
 	public:
-		void *bkptr;
-		JsCPPUtils::AtomicNum<int> refcnt;
+		JsCPPUtils::SmartPointerRefCounter refcounter;
+		JsCPPUtils::SmartPointerRefCounter *prefcounter;
 		JsCPPUtils::AtomicNum<int> *prefcnt;
-		SmartPointerRootManager(void *ptr) : refcnt(0), bkptr(ptr) {}
+		JsCPPUtils::AtomicNum<int> *pweakcount;
+
+		void *bkptr;
+		SmartPointerRootManager(void *ptr, JsCPPUtils::SmartPointerRefCounter &_refcounter) : bkptr(ptr) {
+			this->prefcnt = &_refcounter.refcnt;
+			this->pweakcount = &_refcounter.weakcount;
+		}
 		virtual void destroy() = 0;
 		virtual ~SmartPointerRootManager() {};
-		void setRefCntPtr(::JsCPPUtils::SmartPointerRefCounter *pSmartRefcnt)
+		void setRefCntPtr(::JsCPPUtils::SmartPointerRefCounter *_prefcounter)
 		{
-			prefcnt = &pSmartRefcnt->refcnt;
+			this->prefcounter = _prefcounter;
+			this->prefcnt = &_prefcounter->refcnt;
+			this->pweakcount = &_prefcounter->weakcount;
 		}
 	};
 
@@ -222,12 +234,10 @@ namespace _JsCPPUtils_private
 
 	public:
 		SmartPointerRootManagerImpl(U *_ptr, Deleter _deleter) :
-			SmartPointerRootManager(_ptr)
+			SmartPointerRootManager(_ptr, refcounter)
 		{
 			this->ptr = _ptr;
 			this->d = _deleter;
-
-			this->prefcnt = &refcnt;
 
 			if (::_JsCPPUtils_private::Loki::SuperSubclassStrict< ::JsCPPUtils::SmartPointerRefCounter, U>::value)
 			{
@@ -240,6 +250,7 @@ namespace _JsCPPUtils_private
 		void destroy() {
 			d(this->ptr);
 			this->ptr = NULL;
+			this->bkptr = NULL;
 		}
 
 		virtual ~SmartPointerRootManagerImpl() { }
@@ -280,15 +291,18 @@ namespace _JsCPPUtils_private
 			m_ptr = ((char*)_ref.m_ptr + offset);
 		}
 
+		int addWeakRef();
+		int delWeakRef(bool isSelfDestroy = false);
+
 	public:
 		int addRef();
 		int delRef(bool isSelfDestroy = false);
 
 		virtual void *detach()
 		{
-			FloatingObject *fobj = new FloatingObject(m_rootManager, m_ptr);
-			addRef();
-			return fobj;
+			if (addRef() == 0)
+				return NULL;
+			return new FloatingObject(m_rootManager, m_ptr);
 		}
 		virtual void attach(void *ptr)
 		{
@@ -301,6 +315,12 @@ namespace _JsCPPUtils_private
 		}
 
 		int getRefCount();
+
+		void reset()
+		{
+			delRef();
+			_constructor();
+		}
 	};
 }
 
