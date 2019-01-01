@@ -184,6 +184,15 @@ namespace _JsCPPUtils_private
 namespace _JsCPPUtils_private
 {
 	class SmartPointerRootManager;
+
+	class SmartPointerRefCounterObject
+	{
+	public:
+		JsCPPUtils::AtomicNum<int> alive;
+		JsCPPUtils::AtomicNum<int> refcnt;
+		JsCPPUtils::AtomicNum<int> weakcount;
+		SmartPointerRefCounterObject() : alive(1) { }
+	};
 }
 
 namespace JsCPPUtils
@@ -192,10 +201,9 @@ namespace JsCPPUtils
 	{
 	private:
 		friend class ::_JsCPPUtils_private::SmartPointerRootManager;
-		JsCPPUtils::AtomicNum<int> refcnt;
-		JsCPPUtils::AtomicNum<int> weakcount;
+		::_JsCPPUtils_private::SmartPointerRefCounterObject *object;
 	public:
-		SmartPointerRefCounter() : refcnt(0) { }
+		SmartPointerRefCounter() : object(new ::_JsCPPUtils_private::SmartPointerRefCounterObject()) { }
 		virtual ~SmartPointerRefCounter() { }
 	};
 }
@@ -205,23 +213,16 @@ namespace _JsCPPUtils_private
 	class SmartPointerRootManager
 	{
 	public:
-		JsCPPUtils::SmartPointerRefCounter refcounter;
-		JsCPPUtils::SmartPointerRefCounter *prefcounter;
-		JsCPPUtils::AtomicNum<int> *prefcnt;
-		JsCPPUtils::AtomicNum<int> *pweakcount;
+		::_JsCPPUtils_private::SmartPointerRefCounterObject *refcounter;
 
 		void *bkptr;
-		SmartPointerRootManager(void *ptr, JsCPPUtils::SmartPointerRefCounter &_refcounter) : bkptr(ptr) {
-			this->prefcnt = &_refcounter.refcnt;
-			this->pweakcount = &_refcounter.weakcount;
+		SmartPointerRootManager(void *ptr) : bkptr(ptr) {
 		}
 		virtual void destroy() = 0;
 		virtual ~SmartPointerRootManager() {};
-		void setRefCntPtr(::JsCPPUtils::SmartPointerRefCounter *_prefcounter)
+		void setRefCntPtr(::JsCPPUtils::SmartPointerRefCounter *refcountedObject)
 		{
-			this->prefcounter = _prefcounter;
-			this->prefcnt = &_prefcounter->refcnt;
-			this->pweakcount = &_prefcounter->weakcount;
+			this->refcounter = refcountedObject->object;
 		}
 	};
 
@@ -234,7 +235,7 @@ namespace _JsCPPUtils_private
 
 	public:
 		SmartPointerRootManagerImpl(U *_ptr, Deleter _deleter) :
-			SmartPointerRootManager(_ptr, refcounter)
+			SmartPointerRootManager(_ptr)
 		{
 			this->ptr = _ptr;
 			this->d = _deleter;
@@ -242,9 +243,11 @@ namespace _JsCPPUtils_private
 			if (::_JsCPPUtils_private::Loki::SuperSubclassStrict< ::JsCPPUtils::SmartPointerRefCounter, U>::value)
 			{
 				setRefCntPtr((::JsCPPUtils::SmartPointerRefCounter*)_ptr);
+			} else {
+				this->refcounter = new ::_JsCPPUtils_private::SmartPointerRefCounterObject();
 			}
 
-			this->prefcnt->incget();
+			this->refcounter->refcnt.incget();
 		}
 
 		void destroy() {
@@ -269,11 +272,13 @@ namespace _JsCPPUtils_private
 			~FloatingObject(){}
 		};
 
+		::_JsCPPUtils_private::SmartPointerRefCounterObject *m_refcounter;
 		SmartPointerRootManager *m_rootManager;
 		void* m_ptr;
 
 		void _constructor()
 		{
+			m_refcounter = NULL;
 			m_rootManager = NULL;
 			m_ptr = NULL;
 		}
@@ -287,6 +292,7 @@ namespace _JsCPPUtils_private
 			T * pBase(pDerived);
 			size_t offset = reinterpret_cast<intptr_t>(pBase) - reinterpret_cast<intptr_t>(pDerived);
 
+			m_refcounter = _ref.m_refcounter;
 			m_rootManager = _ref.m_rootManager;
 			m_ptr = ((char*)_ref.m_ptr + offset);
 		}
@@ -310,6 +316,9 @@ namespace _JsCPPUtils_private
 			delRef();
 			_constructor();
 			m_rootManager = (SmartPointerRootManager*)fobj->m_rootManager;
+			if (m_rootManager) {
+				m_refcounter = m_rootManager->refcounter;
+			}
 			m_ptr = fobj->m_ptr;
 			delete fobj;
 		}
@@ -364,6 +373,7 @@ namespace JsCPPUtils
 					size_t offset = reinterpret_cast<intptr_t>(pBase) - reinterpret_cast<intptr_t>(pDerived);
 
 					m_rootManager = new ::_JsCPPUtils_private::SmartPointerRootManagerImpl<U, Deleter>(ptr, d);
+					m_refcounter = m_rootManager->refcounter;
 					m_ptr = ((char*)ptr + offset);
 					this->ptr = (T*)m_ptr;
 				}
@@ -444,9 +454,11 @@ namespace JsCPPUtils
 			{
 				m_ptr = _ref->m_ptr;
 				this->ptr = (T*)m_ptr;
-				m_rootManager = _ref->m_rootManager;
-				_ref->m_ptr = NULL;
-				_ref->m_rootManager = NULL;
+				m_rootManager = _ref.m_rootManager;
+				m_refcounter = _ref.refcounter;
+				_ref.m_ptr = NULL;
+				_ref.m_refcounter = NULL;
+				_ref.m_rootManager = NULL;
 			}
 #endif
 				

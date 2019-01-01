@@ -59,7 +59,7 @@ namespace JsCPPUtils
 			template<class U>
 			void operator=(const WeakSmartPointer<U>& _ref)
 			{
-				delRef();
+				delWeakRef();
 				_constructor();
 				copyFromTU<T, U>(_ref);
 				this->ptr = (T*)m_ptr;
@@ -68,7 +68,7 @@ namespace JsCPPUtils
 
 			void operator=(const WeakSmartPointer<T>& _ref)
 			{
-				delRef();
+				delWeakRef();
 				_constructor();
 				copyFrom(_ref);
 				this->ptr = (T*)m_ptr;
@@ -86,7 +86,7 @@ namespace JsCPPUtils
 			template<class U>
 			void operator=(const SmartPointer<U>& _ref)
 			{
-				delRef();
+				delWeakRef();
 				_constructor();
 				copyFromTU<T, U>(_ref);
 				this->ptr = (T*)m_ptr;
@@ -95,7 +95,7 @@ namespace JsCPPUtils
 
 			void operator=(const SmartPointer<T>& _ref)
 			{
-				delRef();
+				delWeakRef();
 				_constructor();
 				copyFrom(_ref);
 				this->ptr = (T*)m_ptr;
@@ -137,9 +137,9 @@ namespace JsCPPUtils
 
 			bool isAlive()
 			{
-				if (!m_rootManager)
+				if (!m_refcounter)
 					return false;
-				return m_rootManager->bkptr != NULL;
+				return m_refcounter->alive.get() == 1;
 			}
 
 			SmartPointer<T> getSmartPointer()
