@@ -101,7 +101,7 @@ namespace JsCPPUtils {
 				for (std::list<TimerTaskInfo>::iterator iter = timer->m_timerTaskQueue.begin(); iter != timer->m_timerTaskQueue.end(); iter++)
 				{
 					int64_t curtime = Common::getTickCount();
-					if (iter->timetostart <= curtime)
+					if ((iter->timetostart >= 0) && (iter->timetostart <= curtime))
 					{
 						iter->timetostart = -1;
 						if (iter->schType == SCHTYPE_FIXEDRATE)
@@ -109,8 +109,7 @@ namespace JsCPPUtils {
 						iter->task->execute(iter->task.getPtr(), curtime);
 						if (iter->schType == SCHTYPE_FIXEDDELAY)
 							iter->lastexecutedtick = Common::getTickCount();
-					}
-					else {
+					} else {
 						int64_t exectime = (iter->lastexecutedtick + iter->period);
 						if (exectime <= curtime)
 						{
