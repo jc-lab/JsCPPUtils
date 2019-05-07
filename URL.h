@@ -33,12 +33,10 @@ namespace JsCPPUtils
 
 		bool _strcpy(std::basic_string<CHARTYPE>& pptr, const CHARTYPE *str, int len)
 		{
-			CHARTYPE *ptr;
-			int srclen = ::_tcslen(str);
-			int copylen = (len < 0) ? srclen : len;
-			if(srclen < copylen)
-				copylen = srclen;
-			pptr = std::basic_string<CHARTYPE>(str, copylen);
+			if(len >= 0)
+				pptr = std::basic_string<CHARTYPE>(str, len);
+			else
+				pptr = std::basic_string<CHARTYPE>(str);
 			return true;
 		}
 
@@ -73,11 +71,14 @@ namespace JsCPPUtils
 			return (a==b);
 		}
 
-		void _init(const TCHAR *szUrl)
+		void _init(const CHARTYPE *szUrl)
 		{
-			TCHAR *pprev;
-			TCHAR *pfind1;
-			TCHAR *pfind2;
+			std::string ncstr_1("://");
+			std::basic_string<CHARTYPE> cstr_1(ncstr_1.begin(), ncstr_1.end());
+
+			std::string::size_type nfind1;
+			std::string::size_type nfind2;
+			std::string::size_type nprev;
 
 			m_strFullUrl.clear();
 			m_strProtocol.clear();
@@ -92,93 +93,95 @@ namespace JsCPPUtils
 			if(!_strcpy(m_strFullUrl, szUrl, -1))
 				return ;
 
-			pprev = (TCHAR*)m_strFullUrl.c_str();
-
-			pfind1 = _tcsstr(pprev, _T("://"));
-			if(pfind1 == NULL)
+			nfind1 = m_strFullUrl.find(cstr_1);
+			if (nfind1 == std::string::npos)
 				return;
 
-			if(!_strcpy(m_strProtocol, pprev, ((int)((size_t)(pfind1 - pprev)))))
+			if(!_strcpy(m_strProtocol, m_strFullUrl.c_str(), nfind1))
 				return ;
-			pprev = pfind1+3;
-			// 1 = ok
 
-			pfind1 = _tcsstr(pprev, _T("/"));
-			pfind2 = _tcsstr(pprev, _T("@"));
-			if(pfind2 != NULL)
+			nprev = nfind1 + 3;
+
+			nfind1 = m_strFullUrl.find((CHARTYPE)'/', nprev);
+			nfind2 = m_strFullUrl.find((CHARTYPE)'@', nprev);
+			if(nfind2 != std::string::npos)
 			{
-				if(pfind1 == NULL)
+				if(nfind1 == std::string::npos)
 				{
-					if(!_strcpy(m_strUserInfo, pprev, ((int)((size_t)(pfind2 - pprev)))))
+					if(!_strcpy(m_strUserInfo, m_strFullUrl.c_str() + nprev, nfind1 - nprev))
 						return ;
-					if(!_parseHost(pfind2 + 1, -1))
+					if(!_parseHost(m_strFullUrl.c_str() + nfind2 + 1, -1))
 						return ;
 					m_isValid = true;
 					return;
 				}else{
-					if(!_strcpy(m_strUserInfo, pprev, ((int)((size_t)(pfind2 - pprev)))))
+					if(!_strcpy(m_strUserInfo, m_strFullUrl.c_str() + nprev, nfind2 - nprev))
 						return ;
-					if(!_parseHost(pfind2 + 1, ((int)((size_t)(pfind1 - pfind2))) - 1))
+					if(!_parseHost(m_strFullUrl.c_str() + nfind2 + 1, nfind1 - nfind2 - 1))
 						return ;
-					pprev = pfind1;
+					nprev = nfind1;
 				}
 			}else{
-				if(pfind1 == NULL)
+				if(nfind1 == std::string::npos)
 				{
-					if(!_strcpy(m_strHost, pprev, -1))
+					if(!_strcpy(m_strHost, m_strFullUrl.c_str() + nprev, -1))
 						return ;
-					if(!_parseHost(pprev, -1))
+					if(!_parseHost(m_strFullUrl.c_str() + nprev, -1))
 						return ;
 					m_isValid = true;
 					return;
 				}else{
-					if(!_parseHost(pprev, ((int)((size_t)(pfind1 - pprev)))))
+					if(!_parseHost(m_strFullUrl.c_str() + nprev, nfind1 - nprev))
 						return ;
-					pprev = pfind1;
+					nprev = nfind1;
 				}
 			}
 
-			if(!_strcpy(m_strFilename, pprev, -1))
+			if(!_strcpy(m_strFilename, m_strFullUrl.c_str() + nprev, -1))
 				return ;
 
-			pfind1 = _tcsstr(pprev, _T("?"));
-			//pfind2 = _tcsstr(pprev, _T("#"));
-			if(pfind1 == NULL)
+			nfind1 = m_strFullUrl.find((CHARTYPE)'?', nprev);
+			if(nfind1 == std::string::npos)
 			{
-				if(!_strcpy(m_strPath, pprev, -1))
+				if(!_strcpy(m_strPath, m_strFullUrl.c_str() + nprev, -1))
 					return ;
 			}else{
-				if(!_strcpy(m_strPath, pprev, ((int)((size_t)(pfind1 - pprev)))))
+				if(!_strcpy(m_strPath, m_strFullUrl.c_str() + nprev, nfind1 - nprev))
 					return ;
-				if(!_strcpy(m_strQuery, pfind1 + 1, -1))
+				if(!_strcpy(m_strQuery, m_strFullUrl.c_str() + nfind1 + 1, -1))
 					return ;
 			}
 
 			m_isValid = true;
 		}
 
-		bool _parseHost(const TCHAR *str, int len)
+		bool _parseHost(const CHARTYPE *str, int len)
 		{
-			const TCHAR *pfind = _tcsstr(str, _T(":"));
-			int ifind = (pfind == NULL) ? -1 : ((int)((size_t)(pfind - str)));
+			std::basic_string<CHARTYPE> buffer;
+			if (len < 0)
+				buffer = str;
+			else
+				buffer.append(str, len);
+			std::string::size_type nfind = buffer.find((CHARTYPE)':');
 			int nlen;
-			TCHAR tmpbuf[8] = {0};
-			if(len < 0)
-				len = _tcslen(str);
-			if(ifind >= len || ifind < 0)
+			char tmpbuf[8] = {0};
+			if(nfind == std::string::npos)
 			{
-				if(!_strcpy(m_strHost, str, len))
-					return false;
+				m_strHost = buffer;
 			}
 			else
 			{
-				_strcpy(m_strHost, str, ifind);
-				nlen = len - ifind - 1;
+				int i;
+				_strcpy(m_strHost, str, nfind);
+				nlen = len - nfind - 1;
 				if(nlen >= 8)
 					return false;
-				memcpy(tmpbuf, str+ifind+1, nlen * sizeof(TCHAR));
+				for (i = 0; i < nlen; i++)
+				{
+					tmpbuf[i] = *(str + nfind + 1 + i);
+				}
 				tmpbuf[nlen] = 0;
-				m_port = _ttoi(tmpbuf);
+				m_port = atoi(tmpbuf);
 			}
 			return true;
 		}
