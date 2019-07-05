@@ -24,6 +24,8 @@ namespace JsCPPUtils {
 
 	Timer::~Timer()
 	{
+		cancel();
+		m_thread->join();
 	}
 
 	int64_t Timer::currentTimeMillis()
@@ -44,10 +46,10 @@ namespace JsCPPUtils {
 	void Timer::schedule(SmartPointer<TimerTask> task, int64_t delay)
 	{
 		TimerTaskInfo info;
-		info.timetostart = currentTimeMillis() + delay;
-		info.period = -1;
+		info.timetostart = delay;
+		info.period = 0;
 		info.task = task;
-		info.lastexecutedtick = -1;
+		info.lastexecutedtick = currentTimeMillis() + delay;
 		info.schType = SCHTYPE_FIXEDDELAY;
 		m_timerTaskQueueLock.lock();
 		m_timerTaskQueue.push_back(info);
@@ -57,10 +59,10 @@ namespace JsCPPUtils {
 	void Timer::schedule(SmartPointer<TimerTask> task, int64_t delay, int64_t period)
 	{
 		TimerTaskInfo info;
-		info.timetostart = currentTimeMillis() + delay;
+		info.timetostart = delay;
 		info.period = period;
 		info.task = task;
-		info.lastexecutedtick = -1;
+		info.lastexecutedtick = currentTimeMillis() + delay;
 		info.schType = SCHTYPE_FIXEDDELAY;
 		m_timerTaskQueueLock.lock();
 		m_timerTaskQueue.push_back(info);
@@ -70,10 +72,10 @@ namespace JsCPPUtils {
 	void Timer::scheduleAtFixedRate(SmartPointer<TimerTask> task, int64_t delay, int64_t period)
 	{
 		TimerTaskInfo info;
-		info.timetostart = currentTimeMillis() + delay;
+		info.timetostart = delay;
 		info.period = period;
 		info.task = task;
-		info.lastexecutedtick = -1;
+		info.lastexecutedtick = currentTimeMillis() + delay;
 		info.schType = SCHTYPE_FIXEDRATE;
 		m_timerTaskQueueLock.lock();
 		m_timerTaskQueue.push_back(info);
@@ -98,27 +100,19 @@ namespace JsCPPUtils {
 
 			if (timer->preCheckSchedule()) {
 				timer->m_timerTaskQueueLock.lock();
-				for (std::list<TimerTaskInfo>::iterator iter = timer->m_timerTaskQueue.begin(); iter != timer->m_timerTaskQueue.end(); )
+				for (std::list<TimerTaskInfo>::iterator iter = timer->m_timerTaskQueue.begin(); iter != timer->m_timerTaskQueue.end(); iter++)
 				{
-					int64_t curtime = timer->currentTimeMillis();
-					if (iter->timetostart >= 0)
+					int64_t curtime = Common::getTickCount();
+					if (iter->timetostart >= 0 && iter->timetostart <= curtime)
 					{
-						if (iter->timetostart <= curtime)
-						{
-							// Initial delay
-							iter->timetostart = -1;
-							if (iter->schType == SCHTYPE_FIXEDRATE)
-								iter->lastexecutedtick = curtime;
-							iter->task->execute(iter->task.getPtr(), curtime);
-							if (iter->schType == SCHTYPE_FIXEDDELAY)
-								iter->lastexecutedtick = timer->currentTimeMillis();
-							if (iter->period < 0)
-							{
-								iter = timer->m_timerTaskQueue.erase(iter);
-								continue;
-							}
-						}
-					} else if(iter->period >= 0) {
+						iter->timetostart = -1;
+						if (iter->schType == SCHTYPE_FIXEDRATE)
+							iter->lastexecutedtick = curtime;
+						iter->task->execute(iter->task.getPtr(), curtime);
+						if (iter->schType == SCHTYPE_FIXEDDELAY)
+							iter->lastexecutedtick = Common::getTickCount();
+					}
+					else {
 						int64_t exectime = (iter->lastexecutedtick + iter->period);
 						if (exectime <= curtime)
 						{
@@ -126,10 +120,9 @@ namespace JsCPPUtils {
 								iter->lastexecutedtick = curtime;
 							iter->task->execute(iter->task.getPtr(), curtime);
 							if (iter->schType == SCHTYPE_FIXEDDELAY)
-								iter->lastexecutedtick = timer->currentTimeMillis();
+								iter->lastexecutedtick = Common::getTickCount();
 						}
 					}
-					iter++;
 				}
 				timer->m_timerTaskQueueLock.unlock();
 			}
