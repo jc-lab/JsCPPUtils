@@ -203,7 +203,7 @@ namespace JsCPPUtils
 		friend class ::_JsCPPUtils_private::SmartPointerRootManager;
 		::_JsCPPUtils_private::SmartPointerRefCounterObject *object;
 	public:
-		SmartPointerRefCounter() : object(new ::_JsCPPUtils_private::SmartPointerRefCounterObject()) { }
+		SmartPointerRefCounter() : object(NULL) { }
 		virtual ~SmartPointerRefCounter() { }
 	};
 }
@@ -222,7 +222,14 @@ namespace _JsCPPUtils_private
 		virtual ~SmartPointerRootManager() {};
 		void setRefCntPtr(::JsCPPUtils::SmartPointerRefCounter *refcountedObject)
 		{
+			if (!refcountedObject->object) {
+				refcountedObject->object = new ::_JsCPPUtils_private::SmartPointerRefCounterObject(); // First assigned.
+			}
 			this->refcounter = refcountedObject->object;
+		}
+
+		static bool checkManaged(::JsCPPUtils::SmartPointerRefCounter* refcountedObject) {
+			return refcountedObject->object ? true : false;
 		}
 	};
 
@@ -484,6 +491,10 @@ namespace JsCPPUtils
 			{
 				inherited::attach(ptr);
 				this->ptr = (T*)m_ptr;
+			}
+
+			static bool checkManaged(const T* ptr) {
+				return ::_JsCPPUtils_private::SmartPointerRootManager::checkManaged((JsCPPUtils::SmartPointerRefCounter*)ptr);
 			}
 		};
 }
