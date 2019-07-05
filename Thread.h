@@ -54,13 +54,17 @@ namespace JsCPPUtils
 
 #if defined(JSCUTILS_OS_LINUX)
 		pthread_t m_pthread;
-		pthread_mutex_t m_run_mutex;
 #elif defined(JSCUTILS_OS_WINDOWS)
 		HANDLE m_hThread;
-		HANDLE m_stop_hEvent;
 #endif
 
 		int m_retval;
+
+		/*
+		 * 0 : Stopped
+		 * 1 : Running
+		 * 2 : Stop Requested
+		 */
 		JsCPPUtils::AtomicNum<int> m_runningstatus;
 
 #if defined(JSCUTILS_OS_LINUX)
@@ -87,7 +91,7 @@ namespace JsCPPUtils
 
 	protected:
 		bool isRun() {
-			return m_runningstatus.get() == 2;
+			return m_runningstatus.get() == 1;
 		}
 		virtual int run(int param_idx, void *param_ptr) = 0;
 	};

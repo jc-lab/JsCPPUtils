@@ -19,17 +19,15 @@ namespace JsCPPUtils
 	{
 #if defined(JSCUTILS_OS_LINUX)
 		m_pthread = 0;
-		memset(&m_run_mutex, 0, sizeof(m_run_mutex));
 #elif defined(JSCUTILS_OS_WINDOWS)
 		m_hThread = INVALID_HANDLE_VALUE;;
-		m_stop_hEvent = INVALID_HANDLE_VALUE;
 #endif
 		m_retval = 0;
 	}
 	
 	Thread::~Thread()
 	{
-		if ((m_runningstatus.get() > 0) && (m_runningstatus.get() < 3))
+		if (m_runningstatus.get() > 0)
 		{
 			reqStop();
 			join();
@@ -37,12 +35,7 @@ namespace JsCPPUtils
 #if defined(JSCUTILS_OS_LINUX)
 		::pthread_mutex_destroy(&m_run_mutex);
 #elif defined(JSCUTILS_OS_WINDOWS)
-		if ((m_stop_hEvent != NULL) && (m_stop_hEvent != INVALID_HANDLE_VALUE))
-		{
-			::CloseHandle(m_stop_hEvent);
-			m_stop_hEvent = NULL;
-		}
-		if ((m_hThread != NULL) && (m_hThread != INVALID_HANDLE_VALUE))
+		if (m_hThread && (m_hThread != INVALID_HANDLE_VALUE))
 		{
 			::CloseHandle(m_hThread);
 			m_hThread = NULL;
@@ -57,9 +50,8 @@ namespace JsCPPUtils
 		int retval;
 		spThread.attach((JsCPPUtils::SmartPointer<Thread>*)param);
 
-		spThread->m_runningstatus = 2;
 		retval = spThread->run(spThread->m_index, spThread->m_param);
-		spThread->m_runningstatus = 3;
+		spThread->m_runningstatus.set(0);
 
 		return (DWORD)retval;
 	}
@@ -70,9 +62,8 @@ namespace JsCPPUtils
 		int retval;
 		spThread.attach((JsCPPUtils::SmartPointer<Thread>*)param);
 
-		spThread->m_runningstatus = 2;
 		spThread->m_retval = retval = spThread->run(spThread->m_index, spThread->m_param);
-		spThread->m_runningstatus = 3;
+		spThread->m_runningstatus.set(0);
 
 		return (DWORD)retval;
 	}
@@ -80,47 +71,12 @@ namespace JsCPPUtils
 
 	int Thread::reqStop()
 	{
-#if defined(JSCUTILS_OS_LINUX)
-		int nrst = pthread_mutex_unlock(&m_run_mutex);
-		pthread_cancel(m_pthread);
-		if(nrst != 0)
-			return -errno;
-		return 1;
-#elif defined(JSCUTILS_OS_WINDOWS)
-		if(m_stop_hEvent == INVALID_HANDLE_VALUE)
-			return 0;
-		if(!SetEvent(m_stop_hEvent))
-		{
-			return -((int)GetLastError());
-		}
-		return 1;
-#endif
+		return m_runningstatus.getifset(2, 1);
 	}
 
 	int Thread::isRunning()
 	{
-#if defined(JSCUTILS_OS_LINUX)
-		int nrst = pthread_mutex_trylock(&m_run_mutex);
-		switch(nrst)
-		{
-		case 0: // unlocked
-			pthread_mutex_unlock(&m_run_mutex);
-			return 0; // quit
-		case EBUSY: // Already locked
-			return 1; // run
-		}
-		return -nrst; // error / quit
-#elif defined(JSCUTILS_OS_WINDOWS)
-		DWORD dwWait = ::WaitForSingleObject(m_stop_hEvent, 0);
-		switch(dwWait)
-		{
-		case WAIT_OBJECT_0:
-			return 0; // quit
-		case WAIT_TIMEOUT:
-			return 1; //run
-		}
-		return -((int)dwWait);
-#endif
+		return m_runningstatus.get();
 	}
 	
 	Thread::RunningStatus Thread::getRunningStatus()
@@ -144,11 +100,7 @@ namespace JsCPPUtils
 	int Thread::join(DWORD dwTimeout)
 	{
 		int64_t st = JsCPPUtils::Common::getTickCount();
-		if ((m_stop_hEvent == NULL) || (m_stop_hEvent == INVALID_HANDLE_VALUE))
-			return 0;
-		//::WaitForSingleObject(m_stop_hEvent, dwTimeout);
-
-		while (m_runningstatus.get() != 3)
+		while (m_runningstatus.get() > 0)
 		{
 			int64_t ct = JsCPPUtils::Common::getTickCount();
 			int64_t dt = ct - st;
@@ -174,6 +126,12 @@ namespace JsCPPUtils
 		int nrst;
 		int step = 0;
 
+		if (!JsCPPUtils::SmartPointer<Thread>::checkManaged(this))
+		{
+			assert(JsCPPUtils::SmartPointer<Thread>::checkManaged(this));
+			return -1;
+		}
+
 		JsCPPUtils::SmartPointer<Thread> spThread = this;
 
 		m_index = param_idx;
@@ -182,20 +140,6 @@ namespace JsCPPUtils
 		do
 		{
 #if defined(JSCUTILS_OS_LINUX)
-			nrst = pthread_mutex_init(&m_run_mutex, NULL);
-			if (nrst != 0)
-			{
-				retval = -nrst;
-				break;
-			}
-			step = 1;
-			nrst = pthread_mutex_lock(&m_run_mutex);
-			if (nrst != 0)
-			{
-				retval = -nrst;
-				break;
-			}
-
 			m_runningstatus = 1;
 
 			step = 2;
@@ -214,13 +158,6 @@ namespace JsCPPUtils
 
 			step = 3;
 #elif defined(JSCUTILS_OS_WINDOWS)
-			m_stop_hEvent = ::CreateEvent(NULL, TRUE, FALSE, NULL);
-			if (m_stop_hEvent == INVALID_HANDLE_VALUE)
-			{
-				nrst = GetLastError();
-				retval = -nrst;
-				break;
-			}
 			step = 1;
 			m_runningstatus = 1;
 			m_hThread = ::CreateThread(NULL, 0, threadProcV2, spThread.detach(), 0, &m_tid);
@@ -238,25 +175,11 @@ namespace JsCPPUtils
 
 		if (retval <= 0)
 		{
-#if defined(JSCUTILS_OS_LINUX)
-			if (step >= 2)
-			{
-				pthread_mutex_unlock(&m_run_mutex);
-			}
-			if (step >= 1)
-			{
-				pthread_mutex_destroy(&m_run_mutex);
-			}
-#elif defined(JSCUTILS_OS_WINDOWS)
-			if (m_stop_hEvent != INVALID_HANDLE_VALUE)
-			{
-				::CloseHandle(m_stop_hEvent);
-				m_stop_hEvent = INVALID_HANDLE_VALUE;
-			}
-			if (m_hThread != INVALID_HANDLE_VALUE)
+#if defined(JSCUTILS_OS_WINDOWS)
+			if (m_hThread && (m_hThread != INVALID_HANDLE_VALUE))
 			{
 				::CloseHandle(m_hThread);
-				m_hThread = INVALID_HANDLE_VALUE;
+				m_hThread = NULL;
 			}
 #endif
 		}
