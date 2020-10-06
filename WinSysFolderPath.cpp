@@ -13,8 +13,21 @@
 
 #pragma comment(lib, "Shlwapi.lib")
 
+#define _NumOf(s) (sizeof(s) / sizeof(s[0]))
+
 namespace JsCPPUtils
 {
+    static const struct { INT iFolder; LPCTSTR pszSpecialFolder; } m_specialFolder[] =
+    {
+        {CSIDL_FAVORITES,			TEXT("Favorites")},
+        {CSIDL_DESKTOPDIRECTORY,	TEXT("Desktop")},
+        {CSIDL_STARTMENU,			TEXT("StartMenu")},
+        {CSIDL_STARTUP,				TEXT("Startup")},
+        {CSIDL_PROGRAMS,			TEXT("Programs")},
+        {CSIDL_SENDTO,				TEXT("SendTo")},
+        {CSIDL_PERSONAL,			TEXT("Personal")},
+        {CSIDL_APPDATA,				TEXT("QuickLaunch")},
+    };
 
 	WinSysFolderPath *WinSysFolderPath::m_pstaticthis = NULL;
 
@@ -113,5 +126,45 @@ namespace JsCPPUtils
 
 		return bRst;
 	}
+
+    BOOL WinSysFolderPath::GetSpecialFolderPath(std::basic_string<wchar_t>& findPath, std::basic_string<wchar_t>& retPath)
+    {
+        bool bResult = FALSE;
+        LPWSTR pszNewSpecialFolder = NULL;
+        LPWSTR pszSpecialFolder = NULL;
+        wchar_t szFilePath[MAX_PATH] = { 0 };
+        wchar_t szRealPath[MAX_PATH] = { 0 };
+
+        pszNewSpecialFolder = (LPWSTR)findPath.c_str();
+
+        pszNewSpecialFolder++;
+
+        pszSpecialFolder = (LPWSTR)wcsrchr(findPath.c_str(), '%');
+        if (pszSpecialFolder)
+        {
+            *pszSpecialFolder = 0;
+            pszSpecialFolder++;
+            wcscpy_s(szFilePath, pszSpecialFolder);
+
+            for (UINT i = 0; i < _NumOf(m_specialFolder); i++)
+            {
+                if (_wcsicmp(m_specialFolder[i].pszSpecialFolder, pszNewSpecialFolder) == 0)
+                {
+                    bResult = SHGetSpecialFolderPath(NULL, szRealPath, m_specialFolder[i].iFolder, TRUE);
+
+                    if (bResult)
+                    {
+                      break;
+                    }
+                }
+            }
+        }
+        {
+            retPath = szRealPath;
+            retPath.append(szFilePath);
+        }
+
+        return bResult;
+    }
 
 }

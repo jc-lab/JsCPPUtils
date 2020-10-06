@@ -57,6 +57,7 @@ namespace JsCPPUtils
 		~WinSysFolderPath();
 		static BOOL GetFolderPathA(int nFolder, REFKNOWNFOLDERID rfid, std::basic_string<char> &retPath);
 		static BOOL GetFolderPathW(int nFolder, REFKNOWNFOLDERID rfid, std::basic_string<wchar_t> &retPath);
+        static BOOL GetSpecialFolderPath(std::basic_string<wchar_t>& findPath, std::basic_string<wchar_t>& retPath);
 #ifdef _UNICODE
 #define GetFolderPath GetFolderPathW
 #else
